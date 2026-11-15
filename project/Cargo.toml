@@ -7,7 +7,7 @@ rust-version = "1.100"
 [dependencies]
 axum = "0.8.9"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "serde"] }
-config = { version = "0.15.27", default-features = false, features = ["yaml"] }
+config = { version = "0.15.27", default-features = false, features = ["toml"] }
 reqwest = { version = "0.13.5", features = ["json", "query"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

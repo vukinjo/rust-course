@@ -8,7 +8,7 @@ authentication.
 src/main.rs            start-up: tracing, settings, pool, migrations, server, graceful shutdown
 src/lib.rs             app(): the router, the token check (route_layer) and the TraceLayer
 src/auth.rs            bearer-token middleware and AuthError (401)
-src/settings.rs        config/base.yaml → config/{APP_ENV}.yaml → APP_<SECTION>__<KEY> env vars
+src/settings.rs        config/base.toml → config/{APP_ENV}.toml → APP_<SECTION>__<KEY> env vars
 src/error.rs           CatalogError and its HTTP responses
 src/reviews.rs         ReviewsClient (jsonplaceholder comments → reviews)
 src/products/          the products feature: model (DTOs), entity, mapper, validate, routes, service, service/repo
@@ -34,7 +34,7 @@ podman exec catalog-db createdb -U catalog shoes   # once
 cargo run                                         # applies the migrations, listens on 127.0.0.1:3000
 ```
 
-If the container already exists, run `podman start catalog-db` instead. `config/local.yaml` holds the database
+If the container already exists, run `podman start catalog-db` instead. `config/local.toml` holds the database
 URL; override any setting with an environment variable, for example
 `APP_DATABASE__URL=postgres://… APP_SERVER__ADDR=0.0.0.0:8080 cargo run`. `RUST_LOG` and `LOG_FORMAT=json`
 control the logs.

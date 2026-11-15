@@ -1,7 +1,7 @@
 //! The service's settings, in layers, like Spring Boot's profiles:
 //!
-//! 1. `config/base.yaml`: defaults for every environment;
-//! 2. `config/{APP_ENV}.yaml`: the active environment, default `local`;
+//! 1. `config/base.toml`: defaults for every environment;
+//! 2. `config/{APP_ENV}.toml`: the active environment, default `local`;
 //! 3. environment variables `APP_<SECTION>__<KEY>`, which override both,
 //!    for example `APP_DATABASE__URL`.
 //!
@@ -111,9 +111,9 @@ mod tests {
         ];
         let settings = load("production", &vars).unwrap();
         assert_eq!(settings.profile, "production");
-        assert_eq!(settings.server.addr.to_string(), "0.0.0.0:3000"); // from production.yaml
+        assert_eq!(settings.server.addr.to_string(), "0.0.0.0:3000"); // from production.toml
         assert_eq!(settings.database.max_connections, 30); // from the variable
-        assert_eq!(settings.reviews.url, "https://jsonplaceholder.typicode.com"); // from base.yaml
+        assert_eq!(settings.reviews.url, "https://jsonplaceholder.typicode.com"); // from base.toml
     }
 
     #[test]

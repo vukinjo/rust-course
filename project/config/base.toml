@@ -1,11 +1,13 @@
 # Settings for every environment. The file for the active environment
 # (APP_ENV, default "local") overrides these, and environment variables
 # override both: APP_DATABASE__MAX_CONNECTIONS=30 sets database.max_connections.
-server:
-  addr: 127.0.0.1:3000
-database:
-  # url: no default. Set it in an environment's file or with APP_DATABASE__URL.
-  max_connections: 10
-reviews:
-  url: https://jsonplaceholder.typicode.com
-  timeout_ms: 5000
+[server]
+addr = "127.0.0.1:3000"
+
+[database]
+# url: no default. Set it in an environment's file or with APP_DATABASE__URL.
+max_connections = 10
+
+[reviews]
+url = "https://jsonplaceholder.typicode.com"
+timeout_ms = 5000
