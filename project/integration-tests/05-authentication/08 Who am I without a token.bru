@@ -1,0 +1,18 @@
+meta {
+  name: Who am I without a token
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/me
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns 401 Unauthorized", function () {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getHeader("www-authenticate")).to.equal("Bearer");
+  });
+}

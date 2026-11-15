@@ -2,15 +2,22 @@
 //! `Authorization: Bearer <token>`. For now the only rule is that the token
 //! is 10 characters long. A real service would verify the token here instead:
 //! check a JWT's signature and expiry, or ask the identity provider about it.
+//!
+//! The middleware also says who is calling: it stores a `CurrentUser` in the
+//! request's extensions, where handlers find it with a `CurrentUser`
+//! argument, and records the user on the request's span for the logs.
 use std::fmt;
 
-use axum::Json;
-use axum::extract::Request;
+use axum::extract::rejection::ExtensionRejection;
+use axum::extract::{FromRequestParts, Request};
+use axum::http::request::Parts;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use axum::routing::get;
+use axum::{Extension, Json, Router};
 use serde_json::json;
-use tracing::debug;
+use tracing::{Span, debug};
 
 /// The length every token must have.
 pub const TOKEN_LENGTH: usize = 10;
@@ -67,11 +74,50 @@ pub fn bearer_token(value: Option<&HeaderValue>) -> Result<&str, AuthError> {
     Ok(token)
 }
 
+/// Who is calling. For now the token itself stands in for the user's id;
+/// with real verification, `id` would be the JWT's `sub` claim.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CurrentUser {
+    pub id: String,
+}
+
 /// Middleware for `axum::middleware::from_fn`: lets the request through to
 /// the handler only if it carries a valid token, and answers 401 otherwise.
-pub async fn require_bearer_token(request: Request, next: Next) -> Result<Response, AuthError> {
-    bearer_token(request.headers().get(header::AUTHORIZATION))?;
+/// For a valid token, it records the user on the request's span, so every
+/// log event of the request names the user, and stores a `CurrentUser` in
+/// the request's extensions for the handlers.
+pub async fn require_bearer_token(mut request: Request, next: Next) -> Result<Response, AuthError> {
+    let token = bearer_token(request.headers().get(header::AUTHORIZATION))?;
+    // An owned copy: `token` borrows from the request, which is changed next
+    let user = CurrentUser {
+        id: token.to_string(),
+    };
+    Span::current().record("user", user.id.as_str());
+    request.extensions_mut().insert(user);
     Ok(next.run(request).await)
+}
+
+/// A handler that takes a `CurrentUser` argument gets the user the
+/// middleware stored: `Extension<CurrentUser>` under a better name. A route
+/// outside the middleware's `route_layer` has no user; that's a mistake in
+/// the router, not the client's, so `Extension`'s rejection answers 500.
+impl<S: Send + Sync> FromRequestParts<S> for CurrentUser {
+    type Rejection = ExtensionRejection;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Extension(user) = Extension::<CurrentUser>::from_request_parts(parts, state).await?;
+        Ok(user)
+    }
+}
+
+/// The routes of this module: `GET /me`.
+pub fn router() -> Router {
+    Router::new().route("/me", get(me))
+}
+
+/// GET /me: who the service thinks is calling, `{"id": "<user id>"}`.
+async fn me(user: CurrentUser) -> Json<serde_json::Value> {
+    Json(json!({ "id": user.id }))
 }
 
 #[cfg(test)]

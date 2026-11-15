@@ -20774,7 +20774,7 @@ LINE 1: SELECT sku, stock, reserved FROM variants ORDER BY id
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#ch27-authentication"><span>Next · Chapter 27</span>Authentication with a Bearer Token</a></footer></section>
-<section class="chapter" id="ch27-authentication" aria-labelledby="ch27-authentication-h"><header class="ch-head"><div class="ch-num">Chapter 27</div><h2 id="ch27-authentication-h">Authentication with a Bearer Token</h2><p class="lede">How axum handles authentication and authorization with middleware, extractors and request extensions, and a first check for the service: every request must carry a bearer token.</p></header>
+<section class="chapter" id="ch27-authentication" aria-labelledby="ch27-authentication-h"><header class="ch-head"><div class="ch-num">Chapter 27</div><h2 id="ch27-authentication-h">Authentication with a Bearer Token</h2><p class="lede">How axum handles authentication and authorization with middleware, extractors and request extensions, and a first check for the service: every request must carry a bearer token, and the middleware tells the handlers and the logs who is calling.</p></header>
 <p>Anyone who can reach the service can change the catalog. This chapter makes every request say who sent it, in the form HTTP APIs use most: a bearer token in the <code>Authorization</code> header. The rule is deliberately simple. A token must be present and exactly 10 characters long, so the chapter can concentrate on where the check goes and how axum runs it. Replacing the rule with real token verification later changes one function.</p>
 
 <h3 id="authentication-authentication-and-authorization">Authentication and authorization</h3>
@@ -20808,7 +20808,7 @@ LINE 1: SELECT sku, stock, reserved FROM variants ORDER BY id
 <p>Authentication belongs to the HTTP layer, in front of the routes, not to <code>ProductService</code>: the service knows nothing about headers, and an unauthenticated request should never reach it. The check gets a module of its own next to <code>products/</code>, because it will apply to every feature the service gets. Its errors get their own type, <code>AuthError</code>, rather than new <code>CatalogError</code> variants, since the catalog never produces them.</p>
 
 <h3 id="authentication-project-step">Project step 27: require a bearer token</h3>
-<aside class="callout c-new"><div class="callout-label">This step</div><p>Every request to a product route must carry <code>Authorization: Bearer &lt;token&gt;</code> with a 10-character token; anything else gets 401 with a JSON error. The handlers, the service and the repository don't change.</p></aside>
+<aside class="callout c-new"><div class="callout-label">This step</div><p>Every request to a product route must carry <code>Authorization: Bearer &lt;token&gt;</code> with a 10-character token; anything else gets 401 with a JSON error. Then the check also says who is calling: a <code>CurrentUser</code> for the handlers, a <code>user</code> field in the logs, and <code>GET /me</code>. The product handlers, the service and the repository don't change.</p></aside>
 <figure class="code plain project"><figcaption><span class="code-title">src/auth.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! Authentication: every request to a route must carry a bearer token,</span>
 <span class="sd">//! `Authorization: Bearer &lt;token&gt;`. For now the only rule is that the token</span>
 <span class="sd">//! is 10 characters long. A real service would verify the token here instead:</span>
@@ -21149,51 +21149,294 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="go">404</span></code></pre></figure>
 <p>Each refused request leaves two events in the log: the debug event from <code>AuthError</code> with the reason, and the trace layer's event with <code>status=401</code>. The unknown path got its 404 without a token, because <code>route_layer</code> only runs the check for matching routes.</p>
 
-<h3 id="authentication-practice">Practice</h3>
-<ol>
-<li>Make reads public: only <code>POST</code>, <code>PUT</code> and <code>DELETE</code> need a token. Split the product routes into a public and a protected router and <code>merge</code> them, with <code>route_layer</code> only on the protected one. Why is this clearer than checking <code>request.method()</code> inside the middleware?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The products module now builds two routers: the public one with the <code>GET</code> routes, and the protected one with the writes and the <code>route_layer</code>. Where both have the same path, <code>merge</code> combines their method routers, so <code>GET /products/1</code> runs without the middleware and <code>DELETE /products/1</code> with it. <code>app()</code> keeps only the trace layer.</p>
+<h3 id="authentication-current-user">Who is calling: the current user</h3>
+<p>The middleware lets a request in or not, and then forgets the token. Most services need the caller later: in the logs, to record who created a product, or to decide what a caller may do. The middleware already has the token, so it says who is calling, in the way the table above describes: it stores the caller in the request's extensions, and the handlers that need the caller take it as an argument. Nothing global holds a current user; the value travels with the request.</p>
+<ul>
+<li><strong><code>CurrentUser</code></strong> holds the caller's id. Until tokens are verified for real, the token itself stands in for the id. With a JWT, the id would be its <code>sub</code> claim, and the struct could carry more claims, such as a name or roles.</li>
+<li><strong>The middleware</strong> builds it and inserts it with <code>request.extensions_mut().insert(user)</code>. It copies the token into a <code>String</code> first: the <code>&amp;str</code> borrows from the request, which the middleware then changes and moves into <code>next.run</code>.</li>
+<li><strong>The extractor.</strong> A handler could take <code>Extension&lt;CurrentUser&gt;</code>. Implementing <code>FromRequestParts</code> for <code>CurrentUser</code> lets it write <code>user: CurrentUser</code> instead, and hides where the user comes from, so that can change without touching any handler. The implementation delegates to <code>Extension</code>, rejection included: a route that isn't behind the middleware has no user, which is a mistake in the router rather than the client's, so the answer is 500, not 401. axum 0.8 uses native <code>async fn</code> in traits, so no <code>#[async_trait]</code> is needed.</li>
+<li><strong><code>GET /me</code></strong> returns the caller's id, which shows the extractor at work. <code>auth.rs</code> now contributes a route, as a feature module does, and <code>app()</code> merges it in before the <code>route_layer</code>, so <code>/me</code> needs a token too.</li>
+</ul>
+<figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
+<span class="gi">+++ b/src/auth.rs</span>
+<span class="gu">@@ -3,13 +3,20 @@</span>
+<span class="w"> </span>//! is 10 characters long. A real service would verify the token here instead:
+<span class="w"> </span>//! check a JWT&#39;s signature and expiry, or ask the identity provider about it.
+<span class="gi">+//!</span>
+<span class="gi">+//! The middleware also says who is calling: it stores a `CurrentUser` in the</span>
+<span class="gi">+//! request&#39;s extensions, where handlers find it with a `CurrentUser`</span>
+<span class="gi">+//! argument, and records the user on the request&#39;s span for the logs.</span>
+<span class="w"> </span>use std::fmt;
+<span class="w"> </span>
+<span class="gd">-use axum::Json;</span>
+<span class="gd">-use axum::extract::Request;</span>
+<span class="gi">+use axum::extract::rejection::ExtensionRejection;</span>
+<span class="gi">+use axum::extract::{FromRequestParts, Request};</span>
+<span class="gi">+use axum::http::request::Parts;</span>
+<span class="w"> </span>use axum::http::{HeaderValue, StatusCode, header};
+<span class="w"> </span>use axum::middleware::Next;
+<span class="w"> </span>use axum::response::{IntoResponse, Response};
+<span class="gi">+use axum::routing::get;</span>
+<span class="gi">+use axum::{Extension, Json, Router};</span>
+<span class="w"> </span>use serde_json::json;
+<span class="gd">-use tracing::debug;</span>
+<span class="gi">+use tracing::{Span, debug};</span>
+<span class="w"> </span>
+<span class="w"> </span>/// The length every token must have.
+<span class="gu">@@ -68,11 +75,50 @@</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gi">+/// Who is calling. For now the token itself stands in for the user&#39;s id;</span>
+<span class="gi">+/// with real verification, `id` would be the JWT&#39;s `sub` claim.</span>
+<span class="gi">+#[derive(Clone, Debug, PartialEq)]</span>
+<span class="gi">+pub struct CurrentUser {</span>
+<span class="gi">+    pub id: String,</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="w"> </span>/// Middleware for `axum::middleware::from_fn`: lets the request through to
+<span class="w"> </span>/// the handler only if it carries a valid token, and answers 401 otherwise.
+<span class="gd">-pub async fn require_bearer_token(request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
+<span class="gd">-    bearer_token(request.headers().get(header::AUTHORIZATION))?;</span>
+<span class="gi">+/// For a valid token, it records the user on the request&#39;s span, so every</span>
+<span class="gi">+/// log event of the request names the user, and stores a `CurrentUser` in</span>
+<span class="gi">+/// the request&#39;s extensions for the handlers.</span>
+<span class="gi">+pub async fn require_bearer_token(mut request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
+<span class="gi">+    let token = bearer_token(request.headers().get(header::AUTHORIZATION))?;</span>
+<span class="gi">+    // An owned copy: `token` borrows from the request, which is changed next</span>
+<span class="gi">+    let user = CurrentUser {</span>
+<span class="gi">+        id: token.to_string(),</span>
+<span class="gi">+    };</span>
+<span class="gi">+    Span::current().record(&quot;user&quot;, user.id.as_str());</span>
+<span class="gi">+    request.extensions_mut().insert(user);</span>
+<span class="w"> </span>    Ok(next.run(request).await)
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gi">+/// A handler that takes a `CurrentUser` argument gets the user the</span>
+<span class="gi">+/// middleware stored: `Extension&lt;CurrentUser&gt;` under a better name. A route</span>
+<span class="gi">+/// outside the middleware&#39;s `route_layer` has no user; that&#39;s a mistake in</span>
+<span class="gi">+/// the router, not the client&#39;s, so `Extension`&#39;s rejection answers 500.</span>
+<span class="gi">+impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for CurrentUser {</span>
+<span class="gi">+    type Rejection = ExtensionRejection;</span>
+<span class="gi">+</span>
+<span class="gi">+    async fn from_request_parts(parts: &amp;mut Parts, state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {</span>
+<span class="gi">+        let Extension(user) = Extension::&lt;CurrentUser&gt;::from_request_parts(parts, state).await?;</span>
+<span class="gi">+        Ok(user)</span>
+<span class="gi">+    }</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="gi">+/// The routes of this module: `GET /me`.</span>
+<span class="gi">+pub fn router() -&gt; Router {</span>
+<span class="gi">+    Router::new().route(&quot;/me&quot;, get(me))</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="gi">+/// GET /me: who the service thinks is calling, `{&quot;id&quot;: &quot;&lt;user id&gt;&quot;}`.</span>
+<span class="gi">+async fn me(user: CurrentUser) -&gt; Json&lt;serde_json::Value&gt; {</span>
+<span class="gi">+    Json(json!({ &quot;id&quot;: user.id }))</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="w"> </span>#[cfg(test)]
+<span class="w"> </span>mod tests {</code></pre></figure>
+<p>For the logs, the user goes on the request's span rather than into each event. The trace layer's span already gives every event of a request its method and URI; with a <code>user</code> field, every event names the user too, including the service's, which knows nothing about users. A span's fields are fixed when the span is created, so <code>app()</code> replaces <code>DefaultMakeSpan</code> with a function that declares <code>user</code> as <code>field::Empty</code>, and the middleware fills it in with <code>Span::current().record(...)</code>. That works because the middleware runs inside the trace layer's span. An empty field isn't printed, so a 401 or a 404 shows no user.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/lib.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
 <span class="gi">+++ b/src/lib.rs</span>
-<span class="gu">@@ -1,5 +1,5 @@</span>
+<span class="gu">@@ -1,7 +1,8 @@</span>
 <span class="w"> </span>//! The shoe catalog service as a library: `main.rs` starts it, and the
 <span class="w"> </span>//! tests in tests/ call the same `app`.
-<span class="gd">-use axum::{Router, middleware};</span>
-<span class="gi">+use axum::Router;</span>
-<span class="w"> </span>use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-<span class="w"> </span>use tracing::Level;
-<span class="gu">@@ -14,20 +14,15 @@</span>
+<span class="gi">+use axum::extract::Request;</span>
+<span class="w"> </span>use axum::{Router, middleware};
+<span class="gd">-use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};</span>
+<span class="gd">-use tracing::Level;</span>
+<span class="gi">+use tower_http::trace::{DefaultOnResponse, TraceLayer};</span>
+<span class="gi">+use tracing::{Level, Span, field};</span>
+<span class="w"> </span>
+<span class="w"> </span>pub mod auth;
+<span class="gu">@@ -14,6 +15,7 @@</span>
 <span class="w"> </span>use products::ProductService;
 <span class="w"> </span>
 <span class="gd">-/// The whole HTTP application. Each feature module contributes its routes;</span>
 <span class="gd">-/// there&#39;s one feature so far. Middleware for every route goes here:</span>
+<span class="gi">+/// The whole HTTP application. Each feature module contributes its routes:</span>
+<span class="gi">+/// the products, and `GET /me` from `auth`. Middleware for every route goes</span>
+<span class="gi">+/// here:</span>
+<span class="w"> </span>///
+<span class="w"> </span>/// - `route_layer` runs the token check only for requests that match a
+<span class="gu">@@ -22,12 +24,27 @@</span>
+<span class="w"> </span>///   (method and URI) and an event when the response is sent (status and
+<span class="w"> </span>///   latency), including the 401s. Events logged while handling a request
+<span class="gd">-///   happen inside its span, so they carry its method and URI too.</span>
+<span class="gi">+///   happen inside its span, so they carry its method and URI too, and,</span>
+<span class="gi">+///   once the token check has filled it in, the user.</span>
+<span class="w"> </span>pub fn app(products: ProductService) -&gt; Router {
+<span class="w"> </span>    products::router(products)
+<span class="gi">+        .merge(auth::router())</span>
+<span class="w"> </span>        .route_layer(middleware::from_fn(auth::require_bearer_token))
+<span class="w"> </span>        .layer(
+<span class="w"> </span>            TraceLayer::new_for_http()
+<span class="gd">-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))</span>
+<span class="gi">+                .make_span_with(request_span)</span>
+<span class="w"> </span>                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+<span class="w"> </span>        )
+<span class="w"> </span>}
+<span class="gi">+</span>
+<span class="gi">+/// The span for one request: what `DefaultMakeSpan` records, plus a `user`</span>
+<span class="gi">+/// field. A span&#39;s fields are fixed when it&#39;s created, so `user` starts</span>
+<span class="gi">+/// empty and the token check fills it in; an empty field isn&#39;t printed.</span>
+<span class="gi">+fn request_span(request: &amp;Request) -&gt; Span {</span>
+<span class="gi">+    tracing::info_span!(</span>
+<span class="gi">+        &quot;request&quot;,</span>
+<span class="gi">+        method = %request.method(),</span>
+<span class="gi">+        uri = %request.uri(),</span>
+<span class="gi">+        version = ?request.version(),</span>
+<span class="gi">+        user = field::Empty,</span>
+<span class="gi">+    )</span>
+<span class="gi">+}</span></code></pre></figure>
+<aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>This is Spring Security's <code>SecurityContextHolder</code> and <code>@AuthenticationPrincipal</code>: the middleware is the filter that authenticates, the extensions hold the principal, and a <code>CurrentUser</code> argument is <code>@AuthenticationPrincipal</code>. The span's <code>user</code> field does what a <code>user</code> key in Logback's MDC does, which Spring services usually fill in a filter too. To record who created a product, the handler would pass <code>&amp;user</code> to <code>ProductService::create</code> as a separate argument next to the <code>ProductInput</code>: the client chooses the product's fields, but not who it is. That's the explicit version of Spring Data's <code>@CreatedBy</code>.</p></aside>
+<aside class="callout c-warn"><div class="callout-label">Watch out</div><p>Here the user's id is the token, so the log now contains tokens, which the start of the chapter says must never happen. That's acceptable only because these tokens are made up. With real verification, the id is the token's <code>sub</code> claim, an identifier that is safe to log, and the token itself stays out of the logs.</p></aside>
+<p>Two tests cover the new code. <code>GET /me</code> returns the caller, and without a token it gets 401 like any other route. A handler that takes a <code>CurrentUser</code> on a route without the middleware answers 500:</p>
+<figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
+<span class="gi">+++ b/tests/auth.rs</span>
+<span class="gu">@@ -3,10 +3,11 @@</span>
+<span class="w"> </span>mod common;
+<span class="w"> </span>
+<span class="gd">-use axum::Router;</span>
+<span class="w"> </span>use axum::body::Body;
+<span class="w"> </span>use axum::http::{Request, StatusCode, header};
+<span class="gi">+use axum::{Router, routing};</span>
+<span class="w"> </span>use common::{TOKEN, app};
+<span class="w"> </span>use http_body_util::BodyExt;
+<span class="w"> </span>use serde_json::{Value, json};
+<span class="gi">+use shoes::auth::CurrentUser;</span>
+<span class="w"> </span>use sqlx::PgPool;
+<span class="w"> </span>use tower::ServiceExt;
+<span class="gu">@@ -69,2 +70,21 @@</span>
+<span class="w"> </span>    assert_eq!((status, challenge.as_str()), (StatusCode::NOT_FOUND, &quot;&quot;));
+<span class="w"> </span>}
+<span class="gi">+</span>
+<span class="gi">+#[sqlx::test]</span>
+<span class="gi">+async fn me_names_the_caller(pool: PgPool) {</span>
+<span class="gi">+    let app = app(pool);</span>
+<span class="gi">+    let (status, _, body) = get(&amp;app, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    assert_eq!((status, body), (StatusCode::OK, json!({ &quot;id&quot;: TOKEN })));</span>
+<span class="gi">+    let (status, _, _) = get(&amp;app, &quot;/me&quot;, None).await;</span>
+<span class="gi">+    assert_eq!(status, StatusCode::UNAUTHORIZED);</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="gi">+/// A handler that takes a `CurrentUser`, on a route without the token check:</span>
+<span class="gi">+/// no middleware stored a user, so the extractor&#39;s rejection is a server</span>
+<span class="gi">+/// error, whatever the client sent.</span>
+<span class="gi">+#[tokio::test]</span>
+<span class="gi">+async fn a_route_outside_the_token_check_has_no_user() {</span>
+<span class="gi">+    let app = Router::new().route(&quot;/who&quot;, routing::get(|user: CurrentUser| async { user.id }));</span>
+<span class="gi">+    let (status, _, _) = get(&amp;app, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);</span>
+<span class="gi">+}</span></code></pre></figure>
+<figure class="code plain project"><figcaption><span class="code-title">cargo test --test auth</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>running 5 tests
+test a_route_outside_the_token_check_has_no_user ... ok
+test a_valid_token_gets_through ... ok
+test requests_without_a_valid_token_get_401 ... ok
+test me_names_the_caller ... ok
+test an_unknown_path_is_404_even_without_a_token ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s</code></pre></figure>
+<p>Running the service as before, every event of an authenticated request names the user, including the service's own <code>product created</code>:</p>
+<figure class="code plain project"><figcaption><span class="code-title">first terminal: the server&#x27;s log (stderr)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ RUST_LOG=shoes=debug,tower_http=info cargo run
+2026-11-15T20:55:23.053724Z  INFO shoes: settings loaded profile=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
+2026-11-15T20:55:23.117146Z  INFO shoes: database ready
+2026-11-15T20:55:23.131631Z  INFO shoes: listening on http://127.0.0.1:3000
+2026-11-15T20:55:25.565649Z  INFO request{method=GET uri=/me version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+2026-11-15T20:55:25.571680Z DEBUG request{method=GET uri=/me version=HTTP/1.1}: shoes::auth: request not authenticated error=the Authorization header is missing
+2026-11-15T20:55:25.571735Z  INFO request{method=GET uri=/me version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=0 ms status=401
+2026-11-15T20:55:25.586957Z  INFO request{method=POST uri=/products version=HTTP/1.1 user=&quot;abcdefghij&quot;}: shoes::products::service: product created id=1 name=Volt
+2026-11-15T20:55:25.587092Z  INFO request{method=POST uri=/products version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=9 ms status=201
+2026-11-15T20:55:25.901234Z  INFO shoes: stopped</code></pre></figure>
+<figure class="code plain project"><figcaption><span class="code-title">second terminal: requests</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>localhost:3000/me<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span>
+<span class="go">{&quot;id&quot;:&quot;abcdefghij&quot;}</span>
+
+<span class="gp">$ </span>curl<span class="w"> </span>-si<span class="w"> </span>localhost:3000/me
+<span class="go">HTTP/1.1 401 Unauthorized</span>
+<span class="go">content-type: application/json</span>
+<span class="go">www-authenticate: Bearer</span>
+<span class="go">content-length: 47</span>
+<span class="go">date: Sun, 15 Nov 2026 20:55:25 GMT</span>
+
+<span class="go">{&quot;error&quot;:&quot;the Authorization header is missing&quot;}</span>
+
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">&#39;%{http_code}\n&#39;</span><span class="w"> </span>localhost:3000/products<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;Volt&quot;, &quot;brand&quot;: &quot;Stride&quot;}&#39;</span>
+<span class="go">201</span></code></pre></figure>
+<p>The request without a token has no <code>user</code> on its span: the middleware refused it before it could record one.</p>
+
+<h3 id="authentication-practice">Practice</h3>
+<ol>
+<li>Make reads public: only <code>POST</code>, <code>PUT</code> and <code>DELETE</code> need a token. Split the product routes into a public and a protected router and <code>merge</code> them, with <code>route_layer</code> only on the protected one. Why is this clearer than checking <code>request.method()</code> inside the middleware?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The products module now builds two routers: the public one with the <code>GET</code> routes, and the protected one with the writes and the <code>route_layer</code>. Where both have the same path, <code>merge</code> combines their method routers, so <code>GET /products/1</code> runs without the middleware and <code>DELETE /products/1</code> with it. <code>GET /me</code> needs a token too, so <code>auth::router()</code> gets its own <code>route_layer</code> the same way, and <code>app()</code> keeps only the trace layer.</p>
+<figure class="code plain project"><figcaption><span class="code-title">src/lib.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
+<span class="gi">+++ b/src/lib.rs</span>
+<span class="gu">@@ -1,6 +1,6 @@</span>
+<span class="w"> </span>//! The shoe catalog service as a library: `main.rs` starts it, and the
+<span class="w"> </span>//! tests in tests/ call the same `app`.
+<span class="gi">+use axum::Router;</span>
+<span class="w"> </span>use axum::extract::Request;
+<span class="gd">-use axum::{Router, middleware};</span>
+<span class="w"> </span>use tower_http::trace::{DefaultOnResponse, TraceLayer};
+<span class="w"> </span>use tracing::{Level, Span, field};
+<span class="gu">@@ -15,24 +15,17 @@</span>
+<span class="w"> </span>use products::ProductService;
+<span class="w"> </span>
+<span class="gd">-/// The whole HTTP application. Each feature module contributes its routes:</span>
+<span class="gd">-/// the products, and `GET /me` from `auth`. Middleware for every route goes</span>
+<span class="gd">-/// here:</span>
 <span class="gd">-///</span>
 <span class="gd">-/// - `route_layer` runs the token check only for requests that match a</span>
 <span class="gd">-///   route, so an unknown path is still 404, not 401;</span>
 <span class="gd">-/// - the trace layer, added last, is the outermost: a span per request</span>
 <span class="gd">-///   (method and URI) and an event when the response is sent (status and</span>
 <span class="gd">-///   latency), including the 401s. Events logged while handling a request</span>
-<span class="gd">-///   happen inside its span, so they carry its method and URI too.</span>
+<span class="gd">-///   happen inside its span, so they carry its method and URI too, and,</span>
+<span class="gd">-///   once the token check has filled it in, the user.</span>
 <span class="gi">+/// The whole HTTP application. Each feature module contributes its routes</span>
-<span class="gi">+/// (and decides which of them need a token); there&#39;s one feature so far.</span>
-<span class="gi">+/// Middleware for every route goes here: the trace layer, a span per request</span>
-<span class="gi">+/// (method and URI) and an event when the response is sent (status and</span>
-<span class="gi">+/// latency), including the 401s. Events logged while handling a request</span>
-<span class="gi">+/// happen inside its span, so they carry its method and URI too.</span>
+<span class="gi">+/// (and decides which of them need a token): the products, and `GET /me`</span>
+<span class="gi">+/// from `auth`. Middleware for every route goes here: the trace layer, a</span>
+<span class="gi">+/// span per request (method and URI) and an event when the response is sent</span>
+<span class="gi">+/// (status and latency), including the 401s. Events logged while handling a</span>
+<span class="gi">+/// request happen inside its span, so they carry its method and URI too,</span>
+<span class="gi">+/// and, on a route with the token check, the user.</span>
 <span class="w"> </span>pub fn app(products: ProductService) -&gt; Router {
 <span class="gd">-    products::router(products)</span>
+<span class="gd">-        .merge(auth::router())</span>
 <span class="gd">-        .route_layer(middleware::from_fn(auth::require_bearer_token))</span>
 <span class="gd">-        .layer(</span>
 <span class="gd">-            TraceLayer::new_for_http()</span>
-<span class="gd">-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))</span>
+<span class="gd">-                .make_span_with(request_span)</span>
 <span class="gd">-                .on_response(DefaultOnResponse::new().level(Level::INFO)),</span>
 <span class="gd">-        )</span>
-<span class="gi">+    products::router(products).layer(</span>
+<span class="gi">+    products::router(products).merge(auth::router()).layer(</span>
 <span class="gi">+        TraceLayer::new_for_http()</span>
-<span class="gi">+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))</span>
+<span class="gi">+            .make_span_with(request_span)</span>
 <span class="gi">+            .on_response(DefaultOnResponse::new().level(Level::INFO)),</span>
 <span class="gi">+    )</span>
-<span class="w"> </span>}</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
+<span class="w"> </span>}
+<span class="w"> </span></code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
+<span class="gi">+++ b/src/auth.rs</span>
+<span class="gu">@@ -13,5 +13,5 @@</span>
+<span class="w"> </span>use axum::http::request::Parts;
+<span class="w"> </span>use axum::http::{HeaderValue, StatusCode, header};
+<span class="gd">-use axum::middleware::Next;</span>
+<span class="gi">+use axum::middleware::{self, Next};</span>
+<span class="w"> </span>use axum::response::{IntoResponse, Response};
+<span class="w"> </span>use axum::routing::get;
+<span class="gu">@@ -111,7 +111,10 @@</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gd">-/// The routes of this module: `GET /me`.</span>
+<span class="gi">+/// The routes of this module: `GET /me`. It needs the token check, so the</span>
+<span class="gi">+/// router brings its own `route_layer`, like the products&#39; protected router.</span>
+<span class="w"> </span>pub fn router() -&gt; Router {
+<span class="gd">-    Router::new().route(&quot;/me&quot;, get(me))</span>
+<span class="gi">+    Router::new()</span>
+<span class="gi">+        .route(&quot;/me&quot;, get(me))</span>
+<span class="gi">+        .route_layer(middleware::from_fn(require_bearer_token))</span>
+<span class="w"> </span>}
+<span class="w"> </span></code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
 <span class="gi">+++ b/src/products/routes.rs</span>
 <span class="gu">@@ -7,6 +7,6 @@</span>
 <span class="w"> </span>use axum::http::{StatusCode, header};
@@ -21258,10 +21501,10 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>//! Authentication through the whole app. `common::send` always sends a valid
 <span class="gd">-//! token, so these tests build their requests by hand.</span>
 <span class="gi">+//! token, so these tests build their requests by hand. Reads are public;</span>
-<span class="gi">+//! writes need a token.</span>
+<span class="gi">+//! writes and `GET /me` need a token.</span>
 <span class="w"> </span>mod common;
 <span class="w"> </span>
-<span class="gu">@@ -12,8 +13,13 @@</span>
+<span class="gu">@@ -13,8 +14,13 @@</span>
 <span class="w"> </span>use tower::ServiceExt;
 <span class="w"> </span>
 <span class="gd">-/// Sends `GET uri` with the given Authorization header (or none) and returns</span>
@@ -21279,7 +21522,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+    let mut request = Request::builder().method(method).uri(uri);</span>
 <span class="w"> </span>    if let Some(value) = authorization {
 <span class="w"> </span>        request = request.header(header::AUTHORIZATION, value);
-<span class="gu">@@ -50,5 +56,6 @@</span>
+<span class="gu">@@ -51,5 +57,6 @@</span>
 <span class="w"> </span>    ];
 <span class="w"> </span>    for (authorization, message) in cases {
 <span class="gd">-        let (status, challenge, body) = get(&amp;app, &quot;/products&quot;, authorization).await;</span>
@@ -21287,7 +21530,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+            send_with(&amp;app, &quot;DELETE&quot;, &quot;/products/1&quot;, authorization).await;</span>
 <span class="w"> </span>        assert_eq!(status, StatusCode::UNAUTHORIZED, &quot;{authorization:?}&quot;);
 <span class="w"> </span>        assert_eq!(challenge, &quot;Bearer&quot;);
-<span class="gu">@@ -60,11 +67,22 @@</span>
+<span class="gu">@@ -61,11 +68,22 @@</span>
 <span class="w"> </span>async fn a_valid_token_gets_through(pool: PgPool) {
 <span class="w"> </span>    let app = app(pool);
 <span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/products&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
@@ -21311,56 +21554,59 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gd">-    let (status, challenge, _) = get(&amp;app(pool), &quot;/nothing-here&quot;, None).await;</span>
 <span class="gi">+    let (status, challenge, _) = send_with(&amp;app(pool), &quot;GET&quot;, &quot;/nothing-here&quot;, None).await;</span>
 <span class="w"> </span>    assert_eq!((status, challenge.as_str()), (StatusCode::NOT_FOUND, &quot;&quot;));
+<span class="w"> </span>}
+<span class="gu">@@ -74,7 +92,7 @@</span>
+<span class="w"> </span>async fn me_names_the_caller(pool: PgPool) {
+<span class="w"> </span>    let app = app(pool);
+<span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    let (status, _, body) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="w"> </span>    assert_eq!((status, body), (StatusCode::OK, json!({ &quot;id&quot;: TOKEN })));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/me&quot;, None).await;</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, None).await;</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::UNAUTHORIZED);
+<span class="w"> </span>}
+<span class="gu">@@ -86,5 +104,5 @@</span>
+<span class="w"> </span>async fn a_route_outside_the_token_check_has_no_user() {
+<span class="w"> </span>    let app = Router::new().route(&quot;/who&quot;, routing::get(|user: CurrentUser| async { user.id }));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
 <span class="w"> </span>}</code></pre><div class="out"><div class="out-label">Test output</div><pre>$ cargo test
      Running unittests src/lib.rs
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running unittests src/main.rs
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running tests/api.rs
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.98s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
      Running tests/auth.rs
-test requests_without_a_valid_token_get_401 ... ok
-test a_valid_token_gets_through ... ok
+test a_route_outside_the_token_check_has_no_user ... ok
+test me_names_the_caller ... ok
 test an_unknown_path_is_404_even_without_a_token ... ok
+test a_valid_token_gets_through ... ok
+test requests_without_a_valid_token_get_401 ... ok
 test reads_need_no_token ... ok
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
      Running tests/migrations.rs
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
      Running tests/reviews.rs
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure>
-<p>The router already dispatches on method and path, so the split puts the rule where the routes are declared: <code>routes.rs</code> shows which endpoints are protected, and the middleware keeps one job, checking the token. A method check inside the middleware is a second copy of the routing. It knows nothing about paths: a public <code>POST /products/search</code> or a private <code>GET</code> would need path matching there too. It is also easy to get subtly wrong for <code>HEAD</code>, <code>PATCH</code> or <code>OPTIONS</code>. The price of the split: whoever adds a write route must put it in the protected router, while a method check would protect a new <code>POST</code> automatically.</p></div></details></li>
-<li>Add authorization: let the middleware store the caller in the request's extensions (<code>struct Caller { token: String }</code>), and allow <code>DELETE /products/{id}</code> only for tokens that start with <code>admin-</code>; any other caller gets <code>403 Forbidden</code> with the usual JSON error. Which layer should make that decision, and why 403 rather than 401?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The middleware copies the token out of the header and inserts a <code>Caller</code> into the request's extensions. It has to copy: the <code>&amp;str</code> borrows from the request, which is then moved into <code>next.run</code>. <code>delete_product</code> takes the caller with <code>Extension&lt;Caller&gt;</code>. For a non-admin, it returns the new <code>CatalogError::Forbidden</code>, which becomes 403 with the usual JSON body.</p>
-<figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
+<p>The router already dispatches on method and path, so the split puts the rule where the routes are declared: <code>routes.rs</code> shows which endpoints are protected, and the middleware keeps one job, checking the token. A method check inside the middleware is a second copy of the routing. It knows nothing about paths: a public <code>POST /products/search</code> or a private <code>GET</code> would need path matching there too. It is also easy to get subtly wrong for <code>HEAD</code>, <code>PATCH</code> or <code>OPTIONS</code>. The price of the split: whoever adds a write route must put it in the protected router, while a method check would protect a new <code>POST</code> automatically.</p><p>A public handler can't take a <code>CurrentUser</code>: no middleware stored one for its request, so the extractor would answer 500. A handler that needs the caller belongs on a protected route. And a public request's log events have no <code>user</code>, because nothing records one.</p></div></details></li>
+<li>Add authorization: allow <code>DELETE /products/{id}</code> only for users whose id starts with <code>admin-</code>; any other user gets <code>403 Forbidden</code> with the usual JSON error. Which layer should make that decision, and why 403 rather than 401?<details class="solution"><summary>Solution</summary><div class="solution-body"><p><code>delete_product</code> takes the <code>CurrentUser</code> as an argument, and the new <code>CurrentUser::is_admin</code> answers the question. For a non-admin, the handler returns the new <code>CatalogError::Forbidden</code>, which becomes 403 with the usual JSON body. Nothing else changes: the middleware already stores the user.</p><figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
 <span class="gi">+++ b/src/auth.rs</span>
-<span class="gu">@@ -68,8 +68,23 @@</span>
+<span class="gu">@@ -82,4 +82,11 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
-<span class="gi">+/// Who sent the request. The middleware stores it in the request&#39;s</span>
-<span class="gi">+/// extensions; a handler takes it with `Extension&lt;Caller&gt;`.</span>
-<span class="gi">+#[derive(Clone, Debug)]</span>
-<span class="gi">+pub struct Caller {</span>
-<span class="gi">+    pub token: String,</span>
-<span class="gi">+}</span>
-<span class="gi">+</span>
-<span class="gi">+impl Caller {</span>
-<span class="gi">+    /// A real service would read the caller&#39;s roles from the token&#39;s claims.</span>
+<span class="gi">+impl CurrentUser {</span>
+<span class="gi">+    /// A real service would read the user&#39;s roles from the token&#39;s claims.</span>
 <span class="gi">+    pub fn is_admin(&amp;self) -&gt; bool {</span>
-<span class="gi">+        self.token.starts_with(&quot;admin-&quot;)</span>
+<span class="gi">+        self.id.starts_with(&quot;admin-&quot;)</span>
 <span class="gi">+    }</span>
 <span class="gi">+}</span>
 <span class="gi">+</span>
 <span class="w"> </span>/// Middleware for `axum::middleware::from_fn`: lets the request through to
-<span class="w"> </span>/// the handler only if it carries a valid token, and answers 401 otherwise.
-<span class="gd">-pub async fn require_bearer_token(request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
-<span class="gd">-    bearer_token(request.headers().get(header::AUTHORIZATION))?;</span>
-<span class="gi">+pub async fn require_bearer_token(mut request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
-<span class="gi">+    let token = bearer_token(request.headers().get(header::AUTHORIZATION))?.to_string();</span>
-<span class="gi">+    request.extensions_mut().insert(Caller { token });</span>
-<span class="w"> </span>    Ok(next.run(request).await)
-<span class="w"> </span>}</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/error.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/error.rs</span>
+<span class="w"> </span>/// the handler only if it carries a valid token, and answers 401 otherwise.</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/error.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/error.rs</span>
 <span class="gi">+++ b/src/error.rs</span>
 <span class="gu">@@ -24,4 +24,5 @@</span>
 <span class="w"> </span>    NoImage,
@@ -21379,20 +21625,12 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>            CatalogError::NotAnImage =&gt; StatusCode::UNSUPPORTED_MEDIA_TYPE,
 <span class="gi">+            CatalogError::Forbidden =&gt; StatusCode::FORBIDDEN,</span>
 <span class="w"> </span>            // Not our client&#39;s fault, and not ours: the server we depend on failed
-<span class="w"> </span>            CatalogError::Reviews(_) =&gt; StatusCode::BAD_GATEWAY,</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
+<span class="w"> </span>            CatalogError::Reviews(_) =&gt; StatusCode::BAD_GATEWAY,</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
 <span class="gi">+++ b/src/products/routes.rs</span>
-<span class="gu">@@ -4,5 +4,5 @@</span>
-<span class="w"> </span>//! converts the entities it gets back into responses.
-<span class="w"> </span>use axum::body::Bytes;
-<span class="gd">-use axum::extract::{DefaultBodyLimit, Path, Query, State};</span>
-<span class="gi">+use axum::extract::{DefaultBodyLimit, Extension, Path, Query, State};</span>
-<span class="w"> </span>use axum::http::{StatusCode, header};
-<span class="w"> </span>use axum::response::{IntoResponse, Response};
 <span class="gu">@@ -15,4 +15,5 @@</span>
 <span class="w"> </span>};
 <span class="w"> </span>use super::service::ProductService;
-<span class="gi">+use crate::auth::Caller;</span>
+<span class="gi">+use crate::auth::CurrentUser;</span>
 <span class="w"> </span>use crate::error::CatalogError;
 <span class="w"> </span>
 <span class="gu">@@ -82,9 +83,14 @@</span>
@@ -21403,10 +21641,10 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+/// else gets 403, before the product is even looked up.</span>
 <span class="w"> </span>async fn delete_product(
 <span class="w"> </span>    State(service): State&lt;ProductService&gt;,
-<span class="gi">+    Extension(caller): Extension&lt;Caller&gt;,</span>
+<span class="gi">+    user: CurrentUser,</span>
 <span class="w"> </span>    Path(id): Path&lt;i64&gt;,
 <span class="w"> </span>) -&gt; Result&lt;StatusCode, CatalogError&gt; {
-<span class="gi">+    if !caller.is_admin() {</span>
+<span class="gi">+    if !user.is_admin() {</span>
 <span class="gi">+        return Err(CatalogError::Forbidden);</span>
 <span class="gi">+    }</span>
 <span class="w"> </span>    service.delete(id).await?;
@@ -21423,10 +21661,9 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+/// tests may also delete.</span>
 <span class="gi">+pub const TOKEN: &amp;str = &quot;admin-test&quot;;</span>
 <span class="w"> </span>
-<span class="w"> </span>pub const PNG: &amp;[u8] = b&quot;\x89PNG\r\n\x1a\n not really the rest of a PNG&quot;;</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
+<span class="w"> </span>pub const PNG: &amp;[u8] = b&quot;\x89PNG\r\n\x1a\n not really the rest of a PNG&quot;;</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
 <span class="gi">+++ b/tests/auth.rs</span>
-<span class="gu">@@ -12,8 +12,13 @@</span>
+<span class="gu">@@ -13,8 +13,13 @@</span>
 <span class="w"> </span>use tower::ServiceExt;
 <span class="w"> </span>
 <span class="gd">-/// Sends `GET uri` with the given Authorization header (or none) and returns</span>
@@ -21444,14 +21681,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+    let mut request = Request::builder().method(method).uri(uri);</span>
 <span class="w"> </span>    if let Some(value) = authorization {
 <span class="w"> </span>        request = request.header(header::AUTHORIZATION, value);
-<span class="gu">@@ -50,5 +55,5 @@</span>
+<span class="gu">@@ -51,5 +56,5 @@</span>
 <span class="w"> </span>    ];
 <span class="w"> </span>    for (authorization, message) in cases {
 <span class="gd">-        let (status, challenge, body) = get(&amp;app, &quot;/products&quot;, authorization).await;</span>
 <span class="gi">+        let (status, challenge, body) = send_with(&amp;app, &quot;GET&quot;, &quot;/products&quot;, authorization).await;</span>
 <span class="w"> </span>        assert_eq!(status, StatusCode::UNAUTHORIZED, &quot;{authorization:?}&quot;);
 <span class="w"> </span>        assert_eq!(challenge, &quot;Bearer&quot;);
-<span class="gu">@@ -60,5 +65,6 @@</span>
+<span class="gu">@@ -61,5 +66,6 @@</span>
 <span class="w"> </span>async fn a_valid_token_gets_through(pool: PgPool) {
 <span class="w"> </span>    let app = app(pool);
 <span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/products&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
@@ -21459,12 +21696,29 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+        send_with(&amp;app, &quot;GET&quot;, &quot;/products&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
 <span class="w"> </span>    assert_eq!((status, body), (StatusCode::OK, json!([])));
 <span class="w"> </span>}
-<span class="gu">@@ -66,5 +72,19 @@</span>
+<span class="gu">@@ -67,5 +73,5 @@</span>
 <span class="w"> </span>#[sqlx::test]
 <span class="w"> </span>async fn an_unknown_path_is_404_even_without_a_token(pool: PgPool) {
 <span class="gd">-    let (status, challenge, _) = get(&amp;app(pool), &quot;/nothing-here&quot;, None).await;</span>
 <span class="gi">+    let (status, challenge, _) = send_with(&amp;app(pool), &quot;GET&quot;, &quot;/nothing-here&quot;, None).await;</span>
 <span class="w"> </span>    assert_eq!((status, challenge.as_str()), (StatusCode::NOT_FOUND, &quot;&quot;));
+<span class="w"> </span>}
+<span class="gu">@@ -74,7 +80,7 @@</span>
+<span class="w"> </span>async fn me_names_the_caller(pool: PgPool) {
+<span class="w"> </span>    let app = app(pool);
+<span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    let (status, _, body) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="w"> </span>    assert_eq!((status, body), (StatusCode::OK, json!({ &quot;id&quot;: TOKEN })));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/me&quot;, None).await;</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, None).await;</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::UNAUTHORIZED);
+<span class="w"> </span>}
+<span class="gu">@@ -86,5 +92,19 @@</span>
+<span class="w"> </span>async fn a_route_outside_the_token_check_has_no_user() {
+<span class="w"> </span>    let app = Router::new().route(&quot;/who&quot;, routing::get(|user: CurrentUser| async { user.id }));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
 <span class="w"> </span>}
 <span class="gi">+</span>
 <span class="gi">+#[sqlx::test]</span>
@@ -21485,145 +21739,176 @@ test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
      Running unittests src/main.rs
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running tests/api.rs
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
      Running tests/auth.rs
+test a_route_outside_the_token_check_has_no_user ... ok
 test an_unknown_path_is_404_even_without_a_token ... ok
-test requests_without_a_valid_token_get_401 ... ok
-test only_an_admin_may_delete ... ok
+test me_names_the_caller ... ok
 test a_valid_token_gets_through ... ok
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+test only_an_admin_may_delete ... ok
+test requests_without_a_valid_token_get_401 ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
      Running tests/migrations.rs
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
      Running tests/reviews.rs
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure>
-<p><strong>Which layer:</strong> the handler (or the service), not the middleware. Authentication is the same for every route, so it fits a layer. Authorization depends on the operation, and later on the data (a seller may delete only their own products), and only the handler and the service know those. Here the handler checks before it calls the service, like <code>@PreAuthorize("hasRole('ADMIN')")</code> on a Spring controller method. If other entry points (a CLI, a queue consumer) could delete too, the check would move into <code>ProductService::delete</code>, which would then take the caller. If a route ever reached <code>delete_product</code> without the middleware, <code>Extension&lt;Caller&gt;</code> would reject the request with 500, because that is a server bug.</p><p><strong>403, not 401:</strong> 401 means the server doesn't know who you are. The <code>WWW-Authenticate</code> header says how to authenticate, and a retry with valid credentials can succeed. 403 means the server knows who you are and the answer is no. The same token will always be refused, so there's no challenge header.</p></div></details></li>
-<li>Replace the middleware with an extractor: implement <code>FromRequestParts</code> for <code>Caller</code>, reusing <code>bearer_token</code>, with <code>AuthError</code> as its rejection, and take it as an argument in <code>create_product</code>. What happens to a handler that forgets the argument, and when would you still choose an extractor?<details class="solution"><summary>Solution</summary><div class="solution-body"><p><code>Caller</code> becomes an extractor. <code>from_request_parts</code> reads the header with <code>bearer_token</code>, and <code>AuthError</code> is the rejection, so a bad token still gets 401 with <code>WWW-Authenticate</code> and the JSON body. axum 0.8 uses native <code>async fn</code> in traits, so no <code>#[async_trait]</code> is needed. The middleware and its <code>route_layer</code> are gone. <code>Caller</code> must come before <code>Json</code> in the arguments anyway, because only the last extractor may consume the body. So a request without a token is rejected before its body is read.</p>
-<figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
+<p><strong>Which layer:</strong> the handler (or the service), not the middleware. Authentication is the same for every route, so it fits a layer. Authorization depends on the operation, and later on the data (a seller may delete only their own products), and only the handler and the service know those. Here the handler checks before it calls the service, like <code>@PreAuthorize("hasRole('ADMIN')")</code> on a Spring controller method. If other entry points (a CLI, a queue consumer) could delete too, the check would move into <code>ProductService::delete</code>, which would then take the caller. If a route ever reached <code>delete_product</code> without the middleware, the <code>CurrentUser</code> extractor would reject the request with 500, because that is a server bug.</p><p><strong>403, not 401:</strong> 401 means the server doesn't know who you are. The <code>WWW-Authenticate</code> header says how to authenticate, and a retry with valid credentials can succeed. 403 means the server knows who you are and the answer is no. The same token will always be refused, so there's no challenge header.</p></div></details></li>
+<li>Replace the middleware with the extractor: let <code>CurrentUser</code>'s <code>from_request_parts</code> authenticate by itself, reusing <code>bearer_token</code>, with <code>AuthError</code> as its rejection, and record the user on the span there. Remove the middleware and its <code>route_layer</code>, and take a <code>CurrentUser</code> in <code>create_product</code>. What happens to a handler that forgets the argument, and when would you still choose an extractor?<details class="solution"><summary>Solution</summary><div class="solution-body"><p><code>from_request_parts</code> now reads the header with <code>bearer_token</code> instead of the extensions, and <code>AuthError</code> is the rejection, so a bad token still gets 401 with <code>WWW-Authenticate</code> and the JSON body. Recording the user moves into the extractor too; it runs inside the trace layer's span, as the middleware did. The middleware and its <code>route_layer</code> are gone, and <code>GET /me</code> keeps working because <code>me</code> takes a <code>CurrentUser</code>. <code>CurrentUser</code> must come before <code>Json</code> in the arguments anyway, because only the last extractor may consume the body. So a request without a token is rejected before its body is read.</p><figure class="code plain project"><figcaption><span class="code-title">src/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/auth.rs</span>
 <span class="gi">+++ b/src/auth.rs</span>
-<span class="gu">@@ -1,12 +1,13 @@</span>
+<span class="gu">@@ -1,20 +1,15 @@</span>
 <span class="gd">-//! Authentication: every request to a route must carry a bearer token,</span>
 <span class="gd">-//! `Authorization: Bearer &lt;token&gt;`. For now the only rule is that the token</span>
 <span class="gd">-//! is 10 characters long. A real service would verify the token here instead:</span>
 <span class="gd">-//! check a JWT&#39;s signature and expiry, or ask the identity provider about it.</span>
-<span class="gi">+//! Authentication: a handler that takes a `Caller` runs only for requests</span>
-<span class="gi">+//! that carry a bearer token, `Authorization: Bearer &lt;token&gt;`. For now the</span>
-<span class="gi">+//! only rule is that the token is 10 characters long. A real service would</span>
-<span class="gi">+//! verify the token here instead: check a JWT&#39;s signature and expiry, or</span>
-<span class="gi">+//! ask the identity provider about it.</span>
+<span class="gd">-//!</span>
+<span class="gd">-//! The middleware also says who is calling: it stores a `CurrentUser` in the</span>
+<span class="gd">-//! request&#39;s extensions, where handlers find it with a `CurrentUser`</span>
+<span class="gd">-//! argument, and records the user on the request&#39;s span for the logs.</span>
+<span class="gi">+//! Authentication: a handler that takes a `CurrentUser` runs only for</span>
+<span class="gi">+//! requests that carry a bearer token, `Authorization: Bearer &lt;token&gt;`. For</span>
+<span class="gi">+//! now the only rule is that the token is 10 characters long. A real service</span>
+<span class="gi">+//! would verify the token here instead: check a JWT&#39;s signature and expiry,</span>
+<span class="gi">+//! or ask the identity provider about it.</span>
 <span class="w"> </span>use std::fmt;
 <span class="w"> </span>
-<span class="w"> </span>use axum::Json;
-<span class="gd">-use axum::extract::Request;</span>
+<span class="gd">-use axum::extract::rejection::ExtensionRejection;</span>
+<span class="gd">-use axum::extract::{FromRequestParts, Request};</span>
 <span class="gi">+use axum::extract::FromRequestParts;</span>
-<span class="gi">+use axum::http::request::Parts;</span>
+<span class="w"> </span>use axum::http::request::Parts;
 <span class="w"> </span>use axum::http::{HeaderValue, StatusCode, header};
 <span class="gd">-use axum::middleware::Next;</span>
 <span class="w"> </span>use axum::response::{IntoResponse, Response};
+<span class="w"> </span>use axum::routing::get;
+<span class="gd">-use axum::{Extension, Json, Router};</span>
+<span class="gi">+use axum::{Json, Router};</span>
 <span class="w"> </span>use serde_json::json;
-<span class="gu">@@ -68,9 +69,20 @@</span>
+<span class="w"> </span>use tracing::{Span, debug};
+<span class="gu">@@ -82,29 +77,16 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gd">-/// Middleware for `axum::middleware::from_fn`: lets the request through to</span>
 <span class="gd">-/// the handler only if it carries a valid token, and answers 401 otherwise.</span>
-<span class="gd">-pub async fn require_bearer_token(request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
-<span class="gd">-    bearer_token(request.headers().get(header::AUTHORIZATION))?;</span>
+<span class="gd">-/// For a valid token, it records the user on the request&#39;s span, so every</span>
+<span class="gd">-/// log event of the request names the user, and stores a `CurrentUser` in</span>
+<span class="gd">-/// the request&#39;s extensions for the handlers.</span>
+<span class="gd">-pub async fn require_bearer_token(mut request: Request, next: Next) -&gt; Result&lt;Response, AuthError&gt; {</span>
+<span class="gd">-    let token = bearer_token(request.headers().get(header::AUTHORIZATION))?;</span>
+<span class="gd">-    // An owned copy: `token` borrows from the request, which is changed next</span>
+<span class="gd">-    let user = CurrentUser {</span>
+<span class="gd">-        id: token.to_string(),</span>
+<span class="gd">-    };</span>
+<span class="gd">-    Span::current().record(&quot;user&quot;, user.id.as_str());</span>
+<span class="gd">-    request.extensions_mut().insert(user);</span>
 <span class="gd">-    Ok(next.run(request).await)</span>
-<span class="gi">+/// Who sent the request. As a handler argument it&#39;s an extractor: axum</span>
+<span class="gd">-}</span>
+<span class="gd">-</span>
+<span class="gd">-/// A handler that takes a `CurrentUser` argument gets the user the</span>
+<span class="gd">-/// middleware stored: `Extension&lt;CurrentUser&gt;` under a better name. A route</span>
+<span class="gd">-/// outside the middleware&#39;s `route_layer` has no user; that&#39;s a mistake in</span>
+<span class="gd">-/// the router, not the client&#39;s, so `Extension`&#39;s rejection answers 500.</span>
+<span class="gi">+/// As a handler argument, `CurrentUser` authenticates the request: axum</span>
 <span class="gi">+/// answers 401 without calling the handler if the token is missing or bad.</span>
-<span class="gi">+#[derive(Debug)]</span>
-<span class="gi">+pub struct Caller {</span>
-<span class="gi">+    pub token: String,</span>
-<span class="gi">+}</span>
-<span class="gi">+</span>
-<span class="gi">+impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for Caller {</span>
+<span class="gi">+/// It also records the user on the request&#39;s span, for the logs.</span>
+<span class="w"> </span>impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for CurrentUser {
+<span class="gd">-    type Rejection = ExtensionRejection;</span>
+<span class="gd">-</span>
+<span class="gd">-    async fn from_request_parts(parts: &amp;mut Parts, state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {</span>
+<span class="gd">-        let Extension(user) = Extension::&lt;CurrentUser&gt;::from_request_parts(parts, state).await?;</span>
 <span class="gi">+    type Rejection = AuthError;</span>
 <span class="gi">+</span>
-<span class="gi">+    async fn from_request_parts(parts: &amp;mut Parts, _state: &amp;S) -&gt; Result&lt;Self, AuthError&gt; {</span>
+<span class="gi">+    async fn from_request_parts(parts: &amp;mut Parts, _state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {</span>
 <span class="gi">+        let token = bearer_token(parts.headers.get(header::AUTHORIZATION))?;</span>
-<span class="gi">+        Ok(Caller {</span>
-<span class="gi">+            token: token.to_string(),</span>
-<span class="gi">+        })</span>
-<span class="gi">+    }</span>
-<span class="w"> </span>}
-<span class="w"> </span></code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/lib.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
+<span class="gi">+        let user = CurrentUser {</span>
+<span class="gi">+            id: token.to_string(),</span>
+<span class="gi">+        };</span>
+<span class="gi">+        Span::current().record(&quot;user&quot;, user.id.as_str());</span>
+<span class="w"> </span>        Ok(user)
+<span class="w"> </span>    }</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/lib.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
 <span class="gi">+++ b/src/lib.rs</span>
-<span class="gu">@@ -1,5 +1,5 @@</span>
+<span class="gu">@@ -1,6 +1,6 @@</span>
 <span class="w"> </span>//! The shoe catalog service as a library: `main.rs` starts it, and the
 <span class="w"> </span>//! tests in tests/ call the same `app`.
-<span class="gd">-use axum::{Router, middleware};</span>
 <span class="gi">+use axum::Router;</span>
-<span class="w"> </span>use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-<span class="w"> </span>use tracing::Level;
-<span class="gu">@@ -15,19 +15,14 @@</span>
-<span class="w"> </span>
-<span class="w"> </span>/// The whole HTTP application. Each feature module contributes its routes;
-<span class="gd">-/// there&#39;s one feature so far. Middleware for every route goes here:</span>
+<span class="w"> </span>use axum::extract::Request;
+<span class="gd">-use axum::{Router, middleware};</span>
+<span class="w"> </span>use tower_http::trace::{DefaultOnResponse, TraceLayer};
+<span class="w"> </span>use tracing::{Level, Span, field};
+<span class="gu">@@ -17,27 +17,21 @@</span>
+<span class="w"> </span>/// The whole HTTP application. Each feature module contributes its routes:
+<span class="w"> </span>/// the products, and `GET /me` from `auth`. Middleware for every route goes
+<span class="gd">-/// here:</span>
 <span class="gd">-///</span>
 <span class="gd">-/// - `route_layer` runs the token check only for requests that match a</span>
 <span class="gd">-///   route, so an unknown path is still 404, not 401;</span>
 <span class="gd">-/// - the trace layer, added last, is the outermost: a span per request</span>
 <span class="gd">-///   (method and URI) and an event when the response is sent (status and</span>
 <span class="gd">-///   latency), including the 401s. Events logged while handling a request</span>
-<span class="gd">-///   happen inside its span, so they carry its method and URI too.</span>
-<span class="gi">+/// there&#39;s one feature so far. Middleware for every route goes here: the</span>
-<span class="gi">+/// trace layer, a span per request (method and URI) and an event when the</span>
-<span class="gi">+/// response is sent (status and latency), including the 401s. Events logged</span>
-<span class="gi">+/// while handling a request happen inside its span, so they carry its method</span>
-<span class="gi">+/// and URI too.</span>
+<span class="gd">-///   happen inside its span, so they carry its method and URI too, and,</span>
+<span class="gd">-///   once the token check has filled it in, the user.</span>
+<span class="gi">+/// here: the trace layer, a span per request (method and URI) and an event</span>
+<span class="gi">+/// when the response is sent (status and latency), including the 401s.</span>
+<span class="gi">+/// Events logged while handling a request happen inside its span, so they</span>
+<span class="gi">+/// carry its method and URI too, and, once a `CurrentUser` argument has</span>
+<span class="gi">+/// filled it in, the user.</span>
 <span class="w"> </span>pub fn app(products: ProductService) -&gt; Router {
 <span class="gd">-    products::router(products)</span>
+<span class="gd">-        .merge(auth::router())</span>
 <span class="gd">-        .route_layer(middleware::from_fn(auth::require_bearer_token))</span>
 <span class="gd">-        .layer(</span>
 <span class="gd">-            TraceLayer::new_for_http()</span>
-<span class="gd">-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))</span>
+<span class="gd">-                .make_span_with(request_span)</span>
 <span class="gd">-                .on_response(DefaultOnResponse::new().level(Level::INFO)),</span>
 <span class="gd">-        )</span>
-<span class="gi">+    products::router(products).layer(</span>
+<span class="gi">+    products::router(products).merge(auth::router()).layer(</span>
 <span class="gi">+        TraceLayer::new_for_http()</span>
-<span class="gi">+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))</span>
+<span class="gi">+            .make_span_with(request_span)</span>
 <span class="gi">+            .on_response(DefaultOnResponse::new().level(Level::INFO)),</span>
 <span class="gi">+    )</span>
-<span class="w"> </span>}</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="w"> </span>/// The span for one request: what `DefaultMakeSpan` records, plus a `user`
+<span class="w"> </span>/// field. A span&#39;s fields are fixed when it&#39;s created, so `user` starts
+<span class="gd">-/// empty and the token check fills it in; an empty field isn&#39;t printed.</span>
+<span class="gi">+/// empty and the `CurrentUser` extractor fills it in; an empty field isn&#39;t</span>
+<span class="gi">+/// printed.</span>
+<span class="w"> </span>fn request_span(request: &amp;Request) -&gt; Span {
+<span class="w"> </span>    tracing::info_span!(</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/products/routes.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/routes.rs</span>
 <span class="gi">+++ b/src/products/routes.rs</span>
 <span class="gu">@@ -15,4 +15,5 @@</span>
 <span class="w"> </span>};
 <span class="w"> </span>use super::service::ProductService;
-<span class="gi">+use crate::auth::Caller;</span>
+<span class="gi">+use crate::auth::CurrentUser;</span>
 <span class="w"> </span>use crate::error::CatalogError;
 <span class="w"> </span>
 <span class="gu">@@ -63,7 +64,9 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gd">-/// POST /products: 201 Created and the product with its ids.</span>
-<span class="gi">+/// POST /products: 201 Created and the product with its ids. The `Caller`</span>
-<span class="gi">+/// argument is what makes it need a token.</span>
+<span class="gi">+/// POST /products: 201 Created and the product with its ids. The</span>
+<span class="gi">+/// `CurrentUser` argument is what makes it need a token.</span>
 <span class="w"> </span>async fn create_product(
 <span class="w"> </span>    State(service): State&lt;ProductService&gt;,
-<span class="gi">+    _caller: Caller,</span>
+<span class="gi">+    _user: CurrentUser,</span>
 <span class="w"> </span>    Json(request): Json&lt;ProductCreateRequest&gt;,
-<span class="w"> </span>) -&gt; Result&lt;(StatusCode, Json&lt;ProductResponse&gt;), CatalogError&gt; {</code></pre></figure>
-<p>The 401 tests now send <code>POST /products</code>. The valid-token test creates a product through <code>common::call</code>, which sends <code>TOKEN</code>. The new test shows a handler without a <code>Caller</code>.</p>
-<figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
+<span class="w"> </span>) -&gt; Result&lt;(StatusCode, Json&lt;ProductResponse&gt;), CatalogError&gt; {</code></pre></figure><p>The 401 tests now send <code>POST /products</code>. The valid-token test creates a product through <code>common::call</code>, which sends <code>TOKEN</code>. A new test shows a handler without a <code>CurrentUser</code>, and the route without middleware from the chapter's tests now works with a token.</p><figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
 <span class="gi">+++ b/tests/auth.rs</span>
 <span class="gu">@@ -1,4 +1,5 @@</span>
 <span class="w"> </span>//! Authentication through the whole app. `common::send` always sends a valid
 <span class="gd">-//! token, so these tests build their requests by hand.</span>
 <span class="gi">+//! token, so these tests build their requests by hand. Only handlers that</span>
-<span class="gi">+//! take a `Caller` need one.</span>
+<span class="gi">+//! take a `CurrentUser` need one.</span>
 <span class="w"> </span>mod common;
 <span class="w"> </span>
 <span class="gu">@@ -6,5 +7,5 @@</span>
-<span class="w"> </span>use axum::body::Body;
 <span class="w"> </span>use axum::http::{Request, StatusCode, header};
+<span class="w"> </span>use axum::{Router, routing};
 <span class="gd">-use common::{TOKEN, app};</span>
-<span class="gi">+use common::{app, call};</span>
+<span class="gi">+use common::{TOKEN, app, call};</span>
 <span class="w"> </span>use http_body_util::BodyExt;
 <span class="w"> </span>use serde_json::{Value, json};
-<span class="gu">@@ -12,8 +13,13 @@</span>
+<span class="gu">@@ -13,8 +14,13 @@</span>
 <span class="w"> </span>use tower::ServiceExt;
 <span class="w"> </span>
 <span class="gd">-/// Sends `GET uri` with the given Authorization header (or none) and returns</span>
@@ -21641,14 +21926,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+    let mut request = Request::builder().method(method).uri(uri);</span>
 <span class="w"> </span>    if let Some(value) = authorization {
 <span class="w"> </span>        request = request.header(header::AUTHORIZATION, value);
-<span class="gu">@@ -50,5 +56,5 @@</span>
+<span class="gu">@@ -51,5 +57,5 @@</span>
 <span class="w"> </span>    ];
 <span class="w"> </span>    for (authorization, message) in cases {
 <span class="gd">-        let (status, challenge, body) = get(&amp;app, &quot;/products&quot;, authorization).await;</span>
 <span class="gi">+        let (status, challenge, body) = send_with(&amp;app, &quot;POST&quot;, &quot;/products&quot;, authorization).await;</span>
 <span class="w"> </span>        assert_eq!(status, StatusCode::UNAUTHORIZED, &quot;{authorization:?}&quot;);
 <span class="w"> </span>        assert_eq!(challenge, &quot;Bearer&quot;);
-<span class="gu">@@ -60,5 +66,12 @@</span>
+<span class="gu">@@ -61,5 +67,12 @@</span>
 <span class="w"> </span>async fn a_valid_token_gets_through(pool: PgPool) {
 <span class="w"> </span>    let app = app(pool);
 <span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/products&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
@@ -21658,36 +21943,65 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+}</span>
 <span class="gi">+</span>
 <span class="gi">+#[sqlx::test]</span>
-<span class="gi">+async fn a_handler_without_a_caller_needs_no_token(pool: PgPool) {</span>
+<span class="gi">+async fn a_handler_without_a_current_user_needs_no_token(pool: PgPool) {</span>
 <span class="gi">+    let (status, _, body) = send_with(&amp;app(pool), &quot;GET&quot;, &quot;/products&quot;, None).await;</span>
 <span class="w"> </span>    assert_eq!((status, body), (StatusCode::OK, json!([])));
 <span class="w"> </span>}
-<span class="gu">@@ -66,5 +79,5 @@</span>
+<span class="gu">@@ -67,5 +80,5 @@</span>
 <span class="w"> </span>#[sqlx::test]
 <span class="w"> </span>async fn an_unknown_path_is_404_even_without_a_token(pool: PgPool) {
 <span class="gd">-    let (status, challenge, _) = get(&amp;app(pool), &quot;/nothing-here&quot;, None).await;</span>
 <span class="gi">+    let (status, challenge, _) = send_with(&amp;app(pool), &quot;GET&quot;, &quot;/nothing-here&quot;, None).await;</span>
 <span class="w"> </span>    assert_eq!((status, challenge.as_str()), (StatusCode::NOT_FOUND, &quot;&quot;));
+<span class="w"> </span>}
+<span class="gu">@@ -74,17 +87,18 @@</span>
+<span class="w"> </span>async fn me_names_the_caller(pool: PgPool) {
+<span class="w"> </span>    let app = app(pool);
+<span class="gd">-    let (status, _, body) = get(&amp;app, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    let (status, _, body) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="w"> </span>    assert_eq!((status, body), (StatusCode::OK, json!({ &quot;id&quot;: TOKEN })));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/me&quot;, None).await;</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/me&quot;, None).await;</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::UNAUTHORIZED);
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gd">-/// A handler that takes a `CurrentUser`, on a route without the token check:</span>
+<span class="gd">-/// no middleware stored a user, so the extractor&#39;s rejection is a server</span>
+<span class="gd">-/// error, whatever the client sent.</span>
+<span class="gi">+/// There is no middleware any more: the extractor authenticates by itself,</span>
+<span class="gi">+/// on any route.</span>
+<span class="w"> </span>#[tokio::test]
+<span class="gd">-async fn a_route_outside_the_token_check_has_no_user() {</span>
+<span class="gi">+async fn the_extractor_needs_no_middleware() {</span>
+<span class="w"> </span>    let app = Router::new().route(&quot;/who&quot;, routing::get(|user: CurrentUser| async { user.id }));
+<span class="gd">-    let (status, _, _) = get(&amp;app, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gd">-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/who&quot;, Some(&amp;format!(&quot;Bearer {TOKEN}&quot;))).await;</span>
+<span class="gi">+    assert_eq!(status, StatusCode::OK);</span>
+<span class="gi">+    let (status, _, _) = send_with(&amp;app, &quot;GET&quot;, &quot;/who&quot;, None).await;</span>
+<span class="gi">+    assert_eq!(status, StatusCode::UNAUTHORIZED);</span>
 <span class="w"> </span>}</code></pre><div class="out"><div class="out-label">Test output</div><pre>$ cargo test
      Running unittests src/lib.rs
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running unittests src/main.rs
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running tests/api.rs
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.30s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
      Running tests/auth.rs
-test a_handler_without_a_caller_needs_no_token ... ok
+test the_extractor_needs_no_middleware ... ok
+test me_names_the_caller ... ok
+test requests_without_a_valid_token_get_401 ... ok
 test an_unknown_path_is_404_even_without_a_token ... ok
 test a_valid_token_gets_through ... ok
-test requests_without_a_valid_token_get_401 ... ok
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s
+test a_handler_without_a_current_user_needs_no_token ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
      Running tests/migrations.rs
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
      Running tests/reviews.rs
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure>
-<p><strong>A handler that forgets the argument</strong> still compiles, and it runs for everyone. Here every route except <code>POST /products</code> is now public, <code>PUT</code> and <code>DELETE</code> included. Protection becomes opt-in for each handler, and forgetting it fails silently. With the middleware, the decision is made once, for a whole router.</p><p><strong>Choose an extractor</strong> when the handler needs the caller anyway, for example to record who created a product or to check ownership. It also fits when only a few endpoints need authentication, or for a requirement on one handler, such as an <code>Admin</code> extractor that rejects with 403. Like <code>@PreAuthorize</code>, it makes the requirement visible in the signature. A common mix is middleware that authenticates every route and stores the <code>Caller</code> in the extensions, plus handlers that take it as an argument when they need it.</p></div></details></li>
+<p><strong>A handler that forgets the argument</strong> still compiles, and it runs for everyone. Here every route except <code>POST /products</code> and <code>GET /me</code> is now public, <code>PUT</code> and <code>DELETE</code> included. Protection becomes opt-in for each handler, and forgetting it fails silently. With the middleware, the decision is made once, for a whole router.</p><p><strong>Choose an extractor</strong> when the handler needs the caller anyway, for example to record who created a product or to check ownership. It also fits when only a few endpoints need authentication, or for a requirement on one handler, such as an <code>Admin</code> extractor that rejects with 403. Like <code>@PreAuthorize</code>, it makes the requirement visible in the signature. A common mix is middleware that authenticates every route and stores the user in the extensions, plus handlers that take it as an argument when they need it: the chapter's code.</p></div></details></li>
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#appa-shared-ownership"><span>Next · Appendix A</span>Single-Threaded Shared Ownership: Rc, Weak, Cell &amp; RefCell</a></footer></section>

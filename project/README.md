@@ -7,7 +7,7 @@ authentication.
 ```
 src/main.rs            start-up: tracing, settings, pool, migrations, server, graceful shutdown
 src/lib.rs             app(): the router, the token check (route_layer) and the TraceLayer
-src/auth.rs            bearer-token middleware and AuthError (401)
+src/auth.rs            bearer-token middleware, AuthError (401), CurrentUser and GET /me
 src/settings.rs        config/base.toml → config/{APP_ENV}.toml → APP_<SECTION>__<KEY> env vars
 src/error.rs           CatalogError and its HTTP responses
 src/reviews.rs         ReviewsClient (jsonplaceholder comments → reviews)
@@ -46,7 +46,7 @@ control the logs.
 ## Test it
 
 ```bash
-DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes cargo test   # 39 tests; each #[sqlx::test] gets its own database
+DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes cargo test   # 41 tests; each #[sqlx::test] gets its own database
 cargo clippy --all-targets -- -D warnings
 ```
 
@@ -54,7 +54,8 @@ cargo clippy --all-targets -- -D warnings
 
 Every route needs `Authorization: Bearer <token>`, where the token is any 10 characters (a placeholder for real
 token verification, see Chapter 27). Without a valid token the answer is 401 with `WWW-Authenticate: Bearer`;
-an unknown path is still 404.
+an unknown path is still 404. The token check also records the caller: every log line of an authenticated
+request shows `user="<id>"`, and handlers can take a `CurrentUser` argument. For now the id is the token itself.
 
 ```bash
 curl -H 'Authorization: Bearer abcdefghij' localhost:3000/products
@@ -71,16 +72,17 @@ curl -H 'Authorization: Bearer abcdefghij' localhost:3000/products
 | `GET /products/{id}/image` | 200 with the image, or 404 |
 | `PUT/GET /products/{id}/variants/{sku}/image` | the same for a variant |
 | `GET /products/{id}/reviews` | 200, the reviews from jsonplaceholder; 502 when that service fails |
+| `GET /me` | 200, `{"id": "<user id>"}`: who the service thinks is calling |
 
 Errors are JSON, such as `{"error": "invalid product: the name is empty"}`. Malformed JSON and unknown fields
 or query parameters are rejected by axum's extractors, with a plain-text message.
 
 ## Integration tests with Bruno
 
-`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 37 requests and 78 tests. The five folders run
+`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 39 requests and 81 tests. The five folders run
 in order: they create a product, read it, filter it, update it, attach images, fetch its reviews and delete it,
-and then check that requests without a valid token get 401. The collection sends `Authorization: Bearer {{token}}`
-and every request inherits it (`auth: inherit`).
+and then check that requests without a valid token get 401 and that `GET /me` names the caller. The collection
+sends `Authorization: Bearer {{token}}` and every request inherits it (`auth: inherit`).
 Each run puts a fresh suffix in names and SKUs, so you can run it as often as you like, even on a database that
 holds other data. The reviews requests need internet access.
 

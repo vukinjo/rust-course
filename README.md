@@ -44,7 +44,7 @@ Open `course/index.html` in a browser. It needs no server and no internet connec
 `project/` is the `shoes` service after Chapter 27: a REST API with axum, PostgreSQL through SQLx with
 migrations, a reqwest client for reviews, structured logs with tracing, layered settings, and a bearer-token
 check on every request. Its [README](project/README.md) explains how to start the database, run the service and
-run the tests (39 Rust tests, and the Bruno collection's 37 requests).
+run the tests (41 Rust tests, and the Bruno collection's 39 requests).
 
 Quick start, once the PostgreSQL container from Chapter 25 is running:
 

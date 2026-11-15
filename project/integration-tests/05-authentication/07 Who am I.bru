@@ -1,0 +1,22 @@
+meta {
+  name: Who am I
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/me
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200 OK as JSON", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+
+  test("names the caller: for now, the user id is the token", function () {
+    expect(res.getBody()).to.deep.equal({ id: bru.getEnvVar("token") });
+  });
+}

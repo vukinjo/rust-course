@@ -2,12 +2,13 @@
 //! token, so these tests build their requests by hand.
 mod common;
 
-use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
+use axum::{Router, routing};
 use common::{TOKEN, app};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
+use shoes::auth::CurrentUser;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
@@ -67,4 +68,23 @@ async fn a_valid_token_gets_through(pool: PgPool) {
 async fn an_unknown_path_is_404_even_without_a_token(pool: PgPool) {
     let (status, challenge, _) = get(&app(pool), "/nothing-here", None).await;
     assert_eq!((status, challenge.as_str()), (StatusCode::NOT_FOUND, ""));
+}
+
+#[sqlx::test]
+async fn me_names_the_caller(pool: PgPool) {
+    let app = app(pool);
+    let (status, _, body) = get(&app, "/me", Some(&format!("Bearer {TOKEN}"))).await;
+    assert_eq!((status, body), (StatusCode::OK, json!({ "id": TOKEN })));
+    let (status, _, _) = get(&app, "/me", None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+/// A handler that takes a `CurrentUser`, on a route without the token check:
+/// no middleware stored a user, so the extractor's rejection is a server
+/// error, whatever the client sent.
+#[tokio::test]
+async fn a_route_outside_the_token_check_has_no_user() {
+    let app = Router::new().route("/who", routing::get(|user: CurrentUser| async { user.id }));
+    let (status, _, _) = get(&app, "/who", Some(&format!("Bearer {TOKEN}"))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
 }
