@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM versions WHERE product_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b931d31d365c2f7e105fabcf1753b7c8afe73af9b718bfe8d1edf3c31a345f1d"
+}

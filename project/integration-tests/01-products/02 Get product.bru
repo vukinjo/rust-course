@@ -1,0 +1,28 @@
+meta {
+  name: Get product
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  const run = bru.getVar("run");
+  const body = res.getBody();
+
+  test("returns 200 OK as JSON", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+
+  test("returns the product that was created", function () {
+    expect(body.id).to.equal(bru.getVar("productId"));
+    expect(body.name).to.equal(`Road Racer ${run}`);
+    expect(body.variants).to.have.lengthOf(2);
+    expect(body.versions).to.have.lengthOf(1);
+  });
+}

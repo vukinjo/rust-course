@@ -1,0 +1,49 @@
+meta {
+  name: Update keeps images
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Road Racer {{run}}",
+    "brand": "Stride",
+    "description": "Carbon-plated racing shoe, 2026 edition",
+    "variants": [
+      { "sku": "RR-VOLT-{{run}}", "description": "Volt yellow, EU 42", "priceCents": 22999, "stock": 2 },
+      { "sku": "RR-BLK-{{run}}", "description": "Black, EU 43", "priceCents": 23999, "stock": 5 }
+    ],
+    "versions": [
+      { "number": 2, "notes": "New outsole", "releasedOn": "2026-10-01", "variantSkus": ["RR-BLK-{{run}}"] }
+    ]
+  }
+}
+
+docs {
+  Drops the white variant. The volt variant's SKU stays, so it keeps its image; the product keeps its image too.
+}
+
+tests {
+  const run = bru.getVar("run");
+  const body = res.getBody();
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("removes the variant that was left out", function () {
+    expect(body.variants.map((v) => v.sku)).to.have.members([`RR-VOLT-${run}`, `RR-BLK-${run}`]);
+  });
+
+  test("keeps the product image and the image of a kept SKU", function () {
+    expect(body.image).to.deep.equal({ contentType: "image/png", size: 118 });
+    const volt = body.variants.find((v) => v.sku === `RR-VOLT-${run}`);
+    expect(volt.image).to.deep.equal({ contentType: "image/png", size: 122 });
+  });
+}

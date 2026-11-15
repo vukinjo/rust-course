@@ -1,0 +1,40 @@
+meta {
+  name: List products by brand and min price
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/products?brand=STRIDE&minPrice=20000
+  body: none
+  auth: inherit
+}
+
+params:query {
+  brand: STRIDE
+  minPrice: 20000
+}
+
+docs {
+  `brand` matches the whole brand, in any letter case. `minPrice` keeps products with at least one variant
+  that costs this much or more (in cents).
+}
+
+tests {
+  const body = res.getBody();
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("includes this run's product", function () {
+    expect(body.map((p) => p.id)).to.include(bru.getVar("productId"));
+  });
+
+  test("returns only Stride products with a variant of at least 200.00", function () {
+    body.forEach((p) => {
+      expect(p.brand.toLowerCase()).to.equal("stride");
+      expect(p.variants.some((v) => v.priceCents >= 20000)).to.equal(true);
+    });
+  });
+}

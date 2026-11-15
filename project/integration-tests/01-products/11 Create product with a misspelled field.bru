@@ -1,0 +1,29 @@
+meta {
+  name: Create product with a misspelled field
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Invalid {{run}}",
+    "brand": "Stride",
+    "variants": [{ "sku": "INV-{{run}}", "pricecents": 100 }]
+  }
+}
+
+tests {
+  test("returns 422 Unprocessable Entity", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("names the unknown field (axum rejects the JSON as plain text)", function () {
+    expect(res.getBody()).to.contain("unknown field `pricecents`");
+  });
+}

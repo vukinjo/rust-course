@@ -1,0 +1,21 @@
+meta {
+  name: Get missing product
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/products/9223372036854775807
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("says which product is missing", function () {
+    expect(res.getBody().error).to.equal("product 9223372036854775807 not found");
+  });
+}

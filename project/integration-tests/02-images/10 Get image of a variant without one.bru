@@ -1,0 +1,21 @@
+meta {
+  name: Get image of a variant without one
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}/variants/RR-BLK-{{run}}/image
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("says no image has been uploaded", function () {
+    expect(res.getBody().error).to.equal("no image has been uploaded");
+  });
+}

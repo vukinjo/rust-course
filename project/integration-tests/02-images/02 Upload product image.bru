@@ -1,0 +1,26 @@
+meta {
+  name: Upload product image
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}/image
+  body: file
+  auth: inherit
+}
+
+body:file {
+  file: @file(../assets/trail-runner.png) @contentType(image/png)
+}
+
+docs {
+  The image is the raw request body (at most 1 MiB). The service decides the type from the bytes, not
+  from the Content-Type header.
+}
+
+tests {
+  test("returns 204 No Content", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

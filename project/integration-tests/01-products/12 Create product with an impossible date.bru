@@ -1,0 +1,29 @@
+meta {
+  name: Create product with an impossible date
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Invalid {{run}}",
+    "brand": "Stride",
+    "versions": [{ "number": 1, "releasedOn": "2026-02-30" }]
+  }
+}
+
+tests {
+  test("returns 422 Unprocessable Entity", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("rejects the date while parsing", function () {
+    expect(res.getBody()).to.contain("releasedOn");
+  });
+}

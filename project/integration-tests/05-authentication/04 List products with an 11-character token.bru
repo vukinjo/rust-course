@@ -1,0 +1,25 @@
+meta {
+  name: List products with an 11-character token
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/products
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer 0123456789a
+}
+
+tests {
+  test("returns 401 Unauthorized", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("counts the extra character", function () {
+    expect(res.getBody().error).to.equal("the token must be 10 characters long, got 11");
+  });
+}

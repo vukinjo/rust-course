@@ -1,0 +1,26 @@
+docs {
+  # shoes API: integration tests
+
+  Integration tests for the `shoes` catalog service. Run the folders in order (01 to 05): together they
+  create one product, read it back, filter it, update it, attach images, fetch reviews and delete it
+  again, then check that requests without a valid token are refused.
+
+  Every run uses a fresh suffix (`{{run}}`, set by `01-products/01 Create product`) in product names and
+  SKUs, so the collection can run again and again against the same database, even next to other data.
+
+  Image uploads read `../assets/*.png` and `../assets/notes.txt`, relative to this folder.
+
+  The reviews requests need internet access: the service fetches reviews from jsonplaceholder.typicode.com.
+
+  Every request sends `Authorization: Bearer {{token}}` (set below, inherited by each request with
+  `auth: inherit`). The service accepts any token of exactly 10 characters; `environments/local.bru` sets
+  `token` to `test-token`. `05-authentication` sends its own headers to check the 401 responses.
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

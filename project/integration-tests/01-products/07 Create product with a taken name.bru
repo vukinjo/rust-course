@@ -1,0 +1,28 @@
+meta {
+  name: Create product with a taken name
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Road Racer {{run}}",
+    "brand": "Another brand"
+  }
+}
+
+tests {
+  test("returns 409 Conflict", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+
+  test("says which name is taken", function () {
+    expect(res.getBody().error).to.equal(`a product named "Road Racer ${bru.getVar("run")}" exists`);
+  });
+}

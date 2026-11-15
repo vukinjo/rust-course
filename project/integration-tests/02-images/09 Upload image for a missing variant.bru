@@ -1,0 +1,25 @@
+meta {
+  name: Upload image for a missing variant
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}/variants/NOPE-{{run}}/image
+  body: file
+  auth: inherit
+}
+
+body:file {
+  file: @file(../assets/volt.png) @contentType(image/png)
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("names the product and the SKU", function () {
+    expect(res.getBody().error).to.equal(`product ${bru.getVar("productId")} has no variant NOPE-${bru.getVar("run")}`);
+  });
+}

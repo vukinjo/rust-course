@@ -1,0 +1,7 @@
+# Production: listen on every interface (in a container, that's how traffic
+# gets in) and allow more connections. The database URL contains a real
+# password, so it never goes into a file: the platform sets APP_DATABASE__URL.
+server:
+  addr: 0.0.0.0:3000
+database:
+  max_connections: 20

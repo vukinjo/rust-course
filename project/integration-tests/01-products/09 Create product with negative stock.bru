@@ -1,0 +1,29 @@
+meta {
+  name: Create product with negative stock
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Invalid {{run}}",
+    "brand": "Stride",
+    "variants": [{ "sku": "INV-{{run}}", "priceCents": 100, "stock": -2 }]
+  }
+}
+
+tests {
+  test("returns 422 Unprocessable Entity", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("says which rule was broken", function () {
+    expect(res.getBody().error).to.equal(`invalid product: the stock of INV-${bru.getVar("run")} can't be negative, got -2`);
+  });
+}

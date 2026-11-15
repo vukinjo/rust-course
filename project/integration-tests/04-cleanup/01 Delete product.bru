@@ -1,0 +1,21 @@
+meta {
+  name: Delete product
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  Deletes the product with its variants, versions and images (ON DELETE CASCADE).
+}
+
+tests {
+  test("returns 204 No Content", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

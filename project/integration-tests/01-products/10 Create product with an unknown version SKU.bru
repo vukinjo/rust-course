@@ -1,0 +1,30 @@
+meta {
+  name: Create product with an unknown version SKU
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Invalid {{run}}",
+    "brand": "Stride",
+    "variants": [{ "sku": "INV-{{run}}", "priceCents": 100 }],
+    "versions": [{ "number": 1, "releasedOn": "2026-01-01", "variantSkus": ["NOPE-{{run}}"] }]
+  }
+}
+
+tests {
+  test("returns 422 Unprocessable Entity", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("says which SKU is unknown", function () {
+    expect(res.getBody().error).to.equal(`invalid product: version 1 lists NOPE-${bru.getVar("run")}, which isn't a variant`);
+  });
+}

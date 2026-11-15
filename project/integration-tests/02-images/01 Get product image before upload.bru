@@ -1,0 +1,21 @@
+meta {
+  name: Get product image before upload
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}/image
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("says no image has been uploaded", function () {
+    expect(res.getBody().error).to.equal("no image has been uploaded");
+  });
+}

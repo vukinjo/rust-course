@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT vv.version_id, v.sku\n         FROM version_variants vv JOIN variants v ON v.id = vv.variant_id\n         WHERE v.product_id = ANY($1) ORDER BY v.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "version_variants",
+            "name": "version_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sku",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "sku"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3eb4ae669b884714f87da29b3e0f828eedcf673f76c0854c0f6a64e5cc5f933d"
+}

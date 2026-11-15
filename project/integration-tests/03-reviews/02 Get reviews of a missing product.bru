@@ -1,0 +1,25 @@
+meta {
+  name: Get reviews of a missing product
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/products/9223372036854775807/reviews
+  body: none
+  auth: inherit
+}
+
+docs {
+  An unknown product is "not found" without a call to the reviews service.
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("says which product is missing", function () {
+    expect(res.getBody().error).to.equal("product 9223372036854775807 not found");
+  });
+}

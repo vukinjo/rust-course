@@ -1,0 +1,26 @@
+meta {
+  name: List products with another scheme
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/products
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Basic dXNlcjpwYXNz
+}
+
+tests {
+  test("returns 401 Unauthorized", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("says a bearer token is expected", function () {
+    expect(res.getHeader("www-authenticate")).to.equal("Bearer");
+    expect(res.getBody().error).to.equal('the Authorization header must be "Bearer <token>"');
+  });
+}

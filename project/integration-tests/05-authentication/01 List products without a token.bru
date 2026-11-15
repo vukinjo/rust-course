@@ -1,0 +1,22 @@
+meta {
+  name: List products without a token
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/products
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns 401 Unauthorized", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("says the header is missing and names the scheme", function () {
+    expect(res.getHeader("www-authenticate")).to.equal("Bearer");
+    expect(res.getBody().error).to.equal("the Authorization header is missing");
+  });
+}

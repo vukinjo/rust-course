@@ -1,0 +1,79 @@
+meta {
+  name: Create product
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Road Racer {{run}}",
+    "brand": "Stride",
+    "description": "Carbon-plated racing shoe",
+    "variants": [
+      { "sku": "RR-WHT-{{run}}", "description": "White, EU 42", "priceCents": 22999 },
+      { "sku": "RR-VOLT-{{run}}", "description": "Volt yellow, EU 42", "priceCents": 22999 }
+    ],
+    "versions": [
+      { "number": 1, "releasedOn": "2026-04-01", "variantSkus": ["RR-WHT-{{run}}", "RR-VOLT-{{run}}"] }
+    ]
+  }
+}
+
+script:pre-request {
+  // A suffix for this run's names and SKUs, so reruns don't collide (names and SKUs are unique)
+  bru.setVar("run", Date.now().toString(36));
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201) {
+    bru.setVar("productId", body.id);
+    bru.setVar("whiteVariantId", body.variants.find((v) => v.sku.startsWith("RR-WHT-")).id);
+  }
+}
+
+tests {
+  const run = bru.getVar("run");
+  const body = res.getBody();
+
+  test("returns 201 Created", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("returns the product with its new id", function () {
+    expect(body.id).to.be.a("number");
+    expect(body.name).to.equal(`Road Racer ${run}`);
+    expect(body.brand).to.equal("Stride");
+    expect(body.description).to.equal("Carbon-plated racing shoe");
+    expect(body.image).to.equal(null);
+  });
+
+  test("returns the variants with ids, stock 0 by default and no image", function () {
+    expect(body.variants.map((v) => v.sku)).to.have.members([`RR-WHT-${run}`, `RR-VOLT-${run}`]);
+    body.variants.forEach((v) => {
+      expect(v.id).to.be.a("number");
+      expect(v.priceCents).to.equal(22999);
+      expect(v.stock).to.equal(0);
+      expect(v.image).to.equal(null);
+    });
+  });
+
+  test("returns the version with its variant SKUs", function () {
+    expect(body.versions).to.have.lengthOf(1);
+    expect(body.versions[0].number).to.equal(1);
+    expect(body.versions[0].releasedOn).to.equal("2026-04-01");
+    expect(body.versions[0].notes).to.equal("");
+    expect(body.versions[0].variantSkus).to.have.members([`RR-WHT-${run}`, `RR-VOLT-${run}`]);
+  });
+
+  test("sets createdAt and updatedAt", function () {
+    expect(Date.parse(body.createdAt)).to.not.be.NaN;
+    expect(body.updatedAt).to.equal(body.createdAt);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: List products by max price
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/products?maxPrice=10000
+  body: none
+  auth: inherit
+}
+
+params:query {
+  maxPrice: 10000
+}
+
+tests {
+  const body = res.getBody();
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("leaves out this run's product, whose variants cost 229.99", function () {
+    expect(body.map((p) => p.id)).to.not.include(bru.getVar("productId"));
+  });
+}

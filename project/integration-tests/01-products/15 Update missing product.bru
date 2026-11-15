@@ -1,0 +1,28 @@
+meta {
+  name: Update missing product
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/products/9223372036854775807
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Ghost {{run}}",
+    "brand": "Stride"
+  }
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+
+  test("says which product is missing", function () {
+    expect(res.getBody().error).to.equal("product 9223372036854775807 not found");
+  });
+}

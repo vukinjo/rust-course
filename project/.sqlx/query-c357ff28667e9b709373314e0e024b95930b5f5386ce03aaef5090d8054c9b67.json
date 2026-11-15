@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id FROM products p\n        WHERE ($1::text IS NULL OR strpos(lower(p.name), lower($1)) > 0)\n          AND ($2::text IS NULL OR lower(p.brand) = lower($2))\n          AND (($3::bigint IS NULL AND $4::bigint IS NULL) OR EXISTS (\n                SELECT 1 FROM variants v\n                WHERE v.product_id = p.id\n                  AND ($3::bigint IS NULL OR v.price_cents >= $3)\n                  AND ($4::bigint IS NULL OR v.price_cents <= $4)))\n        ORDER BY p.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "products",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c357ff28667e9b709373314e0e024b95930b5f5386ce03aaef5090d8054c9b67"
+}

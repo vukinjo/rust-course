@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO version_variants (version_id, variant_id)\n             SELECT $1, v.id FROM variants v WHERE v.product_id = $2 AND v.sku = ANY($3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "832f770e5ad7d7c556adf01372054512b65a71ab8bdb8fc4a8bcaee4ad506893"
+}

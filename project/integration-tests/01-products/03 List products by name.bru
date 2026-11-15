@@ -1,0 +1,32 @@
+meta {
+  name: List products by name
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/products?name=RACER {{run}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  name: RACER {{run}}
+}
+
+docs {
+  `name` matches part of the name, in any letter case.
+}
+
+tests {
+  const body = res.getBody();
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("finds exactly this run's product", function () {
+    expect(body).to.be.an("array").with.lengthOf(1);
+    expect(body[0].id).to.equal(bru.getVar("productId"));
+  });
+}

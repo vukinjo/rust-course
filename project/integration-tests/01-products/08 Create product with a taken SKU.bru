@@ -1,0 +1,29 @@
+meta {
+  name: Create product with a taken SKU
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Copycat {{run}}",
+    "brand": "Stride",
+    "variants": [{ "sku": "RR-WHT-{{run}}", "priceCents": 100 }]
+  }
+}
+
+tests {
+  test("returns 409 Conflict", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+
+  test("says the SKU belongs to another product", function () {
+    expect(res.getBody().error).to.equal(`SKU RR-WHT-${bru.getVar("run")} belongs to another product`);
+  });
+}

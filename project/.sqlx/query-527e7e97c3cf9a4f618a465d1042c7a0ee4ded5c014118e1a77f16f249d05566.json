@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT image, image_type FROM products WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "image",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "products",
+            "name": "image"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "image_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "products",
+            "name": "image_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "527e7e97c3cf9a4f618a465d1042c7a0ee4ded5c014118e1a77f16f249d05566"
+}

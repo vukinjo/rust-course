@@ -1,0 +1,26 @@
+meta {
+  name: List products with a short token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/products
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer short
+}
+
+tests {
+  test("returns 401 Unauthorized", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("says how long the token must be", function () {
+    expect(res.getHeader("www-authenticate")).to.equal("Bearer");
+    expect(res.getBody().error).to.equal("the token must be 10 characters long, got 5");
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Unknown path without a token
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/no-such-path
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

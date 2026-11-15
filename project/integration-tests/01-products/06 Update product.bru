@@ -1,0 +1,70 @@
+meta {
+  name: Update product
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Road Racer {{run}}",
+    "brand": "Stride",
+    "description": "Carbon-plated racing shoe, 2026 edition",
+    "variants": [
+      { "sku": "RR-WHT-{{run}}", "description": "White, EU 42", "priceCents": 21999, "stock": 8 },
+      { "sku": "RR-VOLT-{{run}}", "description": "Volt yellow, EU 42", "priceCents": 22999, "stock": 3 },
+      { "sku": "RR-BLK-{{run}}", "description": "Black, EU 43", "priceCents": 23999, "stock": 5 }
+    ],
+    "versions": [
+      { "number": 1, "releasedOn": "2026-04-01", "variantSkus": ["RR-WHT-{{run}}", "RR-VOLT-{{run}}"] },
+      { "number": 2, "notes": "New outsole", "releasedOn": "2026-10-01", "variantSkus": ["RR-WHT-{{run}}", "RR-BLK-{{run}}"] }
+    ]
+  }
+}
+
+docs {
+  PUT replaces the product. Variants are matched by SKU: a SKU that was there before keeps its id (and
+  image); versions are rebuilt.
+}
+
+tests {
+  const run = bru.getVar("run");
+  const body = res.getBody();
+  const variant = (prefix) => body.variants.find((v) => v.sku === `${prefix}-${run}`);
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("stores the new description", function () {
+    expect(body.description).to.equal("Carbon-plated racing shoe, 2026 edition");
+  });
+
+  test("keeps the id of a variant whose SKU stayed", function () {
+    expect(variant("RR-WHT").id).to.equal(bru.getVar("whiteVariantId"));
+  });
+
+  test("stores the new prices and stock", function () {
+    expect(body.variants).to.have.lengthOf(3);
+    expect(variant("RR-WHT").priceCents).to.equal(21999);
+    expect(variant("RR-WHT").stock).to.equal(8);
+    expect(variant("RR-VOLT").stock).to.equal(3);
+    expect(variant("RR-BLK").stock).to.equal(5);
+  });
+
+  test("replaces the versions", function () {
+    expect(body.versions.map((v) => v.number)).to.have.members([1, 2]);
+    const v2 = body.versions.find((v) => v.number === 2);
+    expect(v2.notes).to.equal("New outsole");
+    expect(v2.variantSkus).to.have.members([`RR-WHT-${run}`, `RR-BLK-${run}`]);
+  });
+
+  test("moves updatedAt forward", function () {
+    expect(Date.parse(body.updatedAt)).to.be.above(Date.parse(body.createdAt));
+  });
+}

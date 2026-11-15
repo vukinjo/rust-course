@@ -1,0 +1,5 @@
+# Build output
+target/
+
+# Personal Claude Code settings for this machine
+.claude/settings.local.json

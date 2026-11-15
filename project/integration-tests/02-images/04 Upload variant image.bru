@@ -1,0 +1,25 @@
+meta {
+  name: Upload variant image
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}/variants/RR-VOLT-{{run}}/image
+  body: file
+  auth: inherit
+}
+
+body:file {
+  file: @file(../assets/volt.png) @contentType(application/octet-stream)
+}
+
+docs {
+  Sent as application/octet-stream on purpose: the service sniffs the type from the bytes.
+}
+
+tests {
+  test("returns 204 No Content", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

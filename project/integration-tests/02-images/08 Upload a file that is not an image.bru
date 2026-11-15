@@ -1,0 +1,29 @@
+meta {
+  name: Upload a file that is not an image
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}/image
+  body: file
+  auth: inherit
+}
+
+body:file {
+  file: @file(../assets/notes.txt) @contentType(image/png)
+}
+
+docs {
+  The Content-Type header claims a PNG, but the bytes are text: the service doesn't trust the header.
+}
+
+tests {
+  test("returns 415 Unsupported Media Type", function () {
+    expect(res.getStatus()).to.equal(415);
+  });
+
+  test("says which image types are accepted", function () {
+    expect(res.getBody().error).to.equal("the body is not a JPEG, PNG or WebP image");
+  });
+}

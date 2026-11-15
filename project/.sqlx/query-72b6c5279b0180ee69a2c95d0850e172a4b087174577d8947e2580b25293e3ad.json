@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT image, image_type FROM variants WHERE product_id = $1 AND sku = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "image",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "image"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "image_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "image_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "72b6c5279b0180ee69a2c95d0850e172a4b087174577d8947e2580b25293e3ad"
+}

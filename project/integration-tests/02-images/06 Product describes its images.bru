@@ -1,0 +1,31 @@
+meta {
+  name: Product describes its images
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  const run = bru.getVar("run");
+  const body = res.getBody();
+  const variant = (prefix) => body.variants.find((v) => v.sku === `${prefix}-${run}`);
+
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("describes the product image without its bytes", function () {
+    expect(body.image).to.deep.equal({ contentType: "image/png", size: 118 });
+  });
+
+  test("describes the variant image, and only on that variant", function () {
+    expect(variant("RR-VOLT").image).to.deep.equal({ contentType: "image/png", size: 122 });
+    expect(variant("RR-WHT").image).to.equal(null);
+    expect(variant("RR-BLK").image).to.equal(null);
+  });
+}

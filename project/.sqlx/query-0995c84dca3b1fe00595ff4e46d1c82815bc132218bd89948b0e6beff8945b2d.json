@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, product_id, number, notes, released_on\n         FROM versions WHERE product_id = ANY($1) ORDER BY number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "versions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "product_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "versions",
+            "name": "product_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "versions",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "notes",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "versions",
+            "name": "notes"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "released_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "versions",
+            "name": "released_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0995c84dca3b1fe00595ff4e46d1c82815bc132218bd89948b0e6beff8945b2d"
+}

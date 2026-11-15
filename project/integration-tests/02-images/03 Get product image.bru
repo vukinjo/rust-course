@@ -1,0 +1,22 @@
+meta {
+  name: Get product image
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}/image
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the uploaded PNG", function () {
+    expect(res.getHeader("content-type")).to.equal("image/png");
+    expect(Number(res.getHeader("content-length"))).to.equal(118); // the size of assets/trail-runner.png
+  });
+}

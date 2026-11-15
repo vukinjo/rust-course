@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM variants WHERE product_id = $1 AND sku <> ALL($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "618321295084b8b63fc00e59a0cad941175bbc49b5b396ebf2765690fea6014b"
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Get deleted product
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

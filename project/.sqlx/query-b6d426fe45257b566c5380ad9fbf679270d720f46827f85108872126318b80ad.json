@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, product_id, sku, description, price_cents, stock, image, image_type\n         FROM variants WHERE product_id = ANY($1) ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "product_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "product_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sku",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "sku"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "price_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "price_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "stock",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "stock"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "image",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "image"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "image_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "variants",
+            "name": "image_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b6d426fe45257b566c5380ad9fbf679270d720f46827f85108872126318b80ad"
+}

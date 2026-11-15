@@ -1,0 +1,17 @@
+meta {
+  name: Get image of deleted product
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}/image
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 404 Not Found", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

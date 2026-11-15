@@ -1,0 +1,22 @@
+meta {
+  name: Get variant image
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/products/{{productId}}/variants/RR-VOLT-{{run}}/image
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the uploaded PNG, with the type sniffed from its bytes", function () {
+    expect(res.getHeader("content-type")).to.equal("image/png");
+    expect(Number(res.getHeader("content-length"))).to.equal(122); // the size of assets/volt.png
+  });
+}
