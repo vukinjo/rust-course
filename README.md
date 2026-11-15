@@ -7,9 +7,8 @@ Kotlin for high-level features, and C for the low-level ones the JVM hides.
 ## What's here
 
 ```
-course/              the course: one offline HTML page
-  index.html         27 chapters, appendices A–F, practice tasks with solutions
-  fonts/             the page's fonts, so it works without a network
+course/              the course: one self-contained HTML page
+  index.html         27 chapters, appendices A–F, practice tasks with solutions (fonts embedded)
 project/             the service the course builds, as it stands after the last chapter
   integration-tests/ a Bruno collection that tests the running service
 ```
