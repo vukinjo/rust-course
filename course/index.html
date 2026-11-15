@@ -12809,7 +12809,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
   products/
     mod.rs           what the feature exports
     model.rs         the API types (DTOs): ProductCreateRequest, ProductUpdateRequest, ProductResponse, …
-    entity.rs        the stored types: ProductEntity, VariantEntity, VersionEntity, Image, NewProduct, …
+    entity.rs        the stored types: ProductEntity, VariantEntity, VersionEntity, Image, ProductInput, …
     mapper.rs        conversions between DTOs and entities
     validate.rs      the rules a product must follow (step 9)
     routes.rs        HTTP: the router and the handlers
@@ -12832,12 +12832,12 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>This is the layered, package-by-feature structure of a typical Spring Boot service: <code>routes</code> ≈ a controller or router, <code>service</code> ≈ a <code>@Service</code>, <code>repo</code> ≈ a repository, <code>model</code> ≈ request and response DTOs, <code>entity</code> ≈ JPA entities, <code>mapper</code> ≈ a MapStruct mapper or hand-written extension functions. What differs is the wiring: <code>main</code> constructs the service and hands it to the router. There's no container, so there are no interfaces with a single implementation, and the repository is a struct, not an interface. (A trait would come in only with a second implementation, for example for tests.) Transactions are explicit too, as Chapter 25 shows.</p></aside>
 
 <h3 id="axum-service-entities-and-dtos">Entities and DTOs</h3>
-<p><code>entity.rs</code> is step 21's <code>model.rs</code>, moved and trimmed. The serde derives and the hand-written <code>Serialize for Image</code> are gone, because entities are never serialized. The product card's <code>Display</code> implementations and their helpers (<code>variants_of</code>, <code>price_range</code>, <code>format_price</code>) are gone too: the service shows products as JSON, so nothing calls them any more. The stored types get an <code>Entity</code> suffix: <code>Product</code>, <code>Variant</code> and <code>Version</code> become <code>ProductEntity</code>, <code>VariantEntity</code> and <code>VersionEntity</code>. The suffix marks what has been stored, with the ids the repository assigned, and tells them apart from the DTOs in <code>model.rs</code> at a glance. <code>NewProduct</code> and its parts keep their names: they're what it takes to create or replace a product, without those ids.</p>
+<p><code>entity.rs</code> is step 21's <code>model.rs</code>, moved and trimmed. The serde derives and the hand-written <code>Serialize for Image</code> are gone, because entities are never serialized. The product card's <code>Display</code> implementations and their helpers (<code>variants_of</code>, <code>price_range</code>, <code>format_price</code>) are gone too: the service shows products as JSON, so nothing calls them any more. The stored types get an <code>Entity</code> suffix: <code>Product</code>, <code>Variant</code> and <code>Version</code> become <code>ProductEntity</code>, <code>VariantEntity</code> and <code>VersionEntity</code>. The suffix marks what has been stored, with the ids the repository assigned, and tells them apart from the DTOs in <code>model.rs</code> at a glance. <code>NewProduct</code>, <code>NewVariant</code> and <code>NewVersion</code> become <code>ProductInput</code>, <code>VariantInput</code> and <code>VersionInput</code>: what it takes to create or replace a product, everything but those ids. They're the service's input for both operations, so the old prefix was misleading for a replace, where the product isn't new.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs (was src/model.rs)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! The entities: products, their variants and versions, and images, as the</span>
 <span class="sd">//! service stores them. They have no serde derives: the JSON clients see is</span>
 <span class="sd">//! defined separately, in `model.rs`, and `mapper.rs` converts between the</span>
 <span class="sd">//! two. The `*Entity` types are what has been stored, with the ids the</span>
-<span class="sd">//! repository assigned; the `New*` types are what it takes to create or</span>
+<span class="sd">//! repository assigned; the `*Input` types are what it takes to create or</span>
 <span class="sd">//! replace a product: everything but the ids.</span>
 
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">Error</span><span class="p">;</span>
@@ -12973,23 +12973,23 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 
 <span class="sd">/// A product to create, or the new state of one to replace.</span>
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">NewProduct</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ProductInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">NewVariant</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">NewVersion</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VariantInput</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VersionInput</span><span class="o">&gt;</span><span class="p">,</span>
 <span class="p">}</span>
 
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">NewVariant</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VariantInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">price_cents</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
 <span class="p">}</span>
 
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">NewVersion</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VersionInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">released_on</span><span class="p">:</span><span class="w"> </span><span class="nc">NaiveDate</span><span class="p">,</span>
@@ -13190,50 +13190,66 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 
 <h3 id="axum-service-the-mapper">The mapper</h3>
 <p>The conversions are <code>From</code> implementations, which is how Rust spells "a value of this type can be made from that one". Each one moves the fields across, and nested lists map element by element. Routes call them as <code>request.into()</code> and <code>ProductResponse::from(product)</code>. A trait implementation is usable wherever both types are visible, so the module itself can stay private: <code>mod mapper;</code> in <code>products/mod.rs</code>.</p>
-<p>None of the conversions can fail. A request that deserialized is a complete <code>NewProduct</code>, and whether it follows the rules is the service's question. A conversion that could fail would implement <code>TryFrom</code> and return a <code>Result</code>.</p>
+<p>None of the conversions can fail. A request that deserialized is a complete <code>ProductInput</code>, and whether it follows the rules is the service's question. A conversion that could fail would implement <code>TryFrom</code> and return a <code>Result</code>.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! Conversions between the API types (`model.rs`) and the entities</span>
-<span class="sd">//! (`entity.rs`), as `From` implementations: requests become entity input</span>
-<span class="sd">//! (`NewProduct`), and entities become responses. Routes call them with</span>
-<span class="sd">//! `.into()` and `ProductResponse::from`.</span>
+<span class="sd">//! (`entity.rs`), as `From` implementations: requests become `ProductInput`,</span>
+<span class="sd">//! and entities become responses. Routes call them with `.into()` and</span>
+<span class="sd">//! `ProductResponse::from`.</span>
 <span class="sd">//!</span>
 <span class="sd">//! The conversions can&#39;t fail: a request that parsed is a complete</span>
-<span class="sd">//! `NewProduct`, and the service validates it. A conversion that could fail</span>
+<span class="sd">//! `ProductInput`, and the service validates it. A conversion that could fail</span>
 <span class="sd">//! would implement `TryFrom` instead.</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span>
-<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">ProductInput</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantInput</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionInput</span><span class="p">,</span>
 <span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::{</span>
 <span class="w">    </span><span class="n">ImageResponse</span><span class="p">,</span><span class="w"> </span><span class="n">ProductCreateRequest</span><span class="p">,</span><span class="w"> </span><span class="n">ProductResponse</span><span class="p">,</span><span class="w"> </span><span class="n">ProductUpdateRequest</span><span class="p">,</span><span class="w"> </span><span class="n">VariantRequest</span><span class="p">,</span>
 <span class="w">    </span><span class="n">VariantResponse</span><span class="p">,</span><span class="w"> </span><span class="n">VersionRequest</span><span class="p">,</span><span class="w"> </span><span class="n">VersionResponse</span><span class="p">,</span>
 <span class="p">};</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">ProductCreateRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">NewProduct</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">ProductCreateRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ProductInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductCreateRequest</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">NewProduct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ProductInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
 <span class="w">            </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
 <span class="w">            </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
-<span class="w">            </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">variants</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">NewVariant</span><span class="p">::</span><span class="n">from</span><span class="p">).</span><span class="n">collect</span><span class="p">(),</span>
-<span class="w">            </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">versions</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">NewVersion</span><span class="p">::</span><span class="n">from</span><span class="p">).</span><span class="n">collect</span><span class="p">(),</span>
+<span class="w">            </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span>
+<span class="w">                </span><span class="p">.</span><span class="n">variants</span>
+<span class="w">                </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">VariantInput</span><span class="p">::</span><span class="n">from</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="n">collect</span><span class="p">(),</span>
+<span class="w">            </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span>
+<span class="w">                </span><span class="p">.</span><span class="n">versions</span>
+<span class="w">                </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">VersionInput</span><span class="p">::</span><span class="n">from</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="n">collect</span><span class="p">(),</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">ProductUpdateRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">NewProduct</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">ProductUpdateRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ProductInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductUpdateRequest</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">NewProduct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ProductInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
 <span class="w">            </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
 <span class="w">            </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
-<span class="w">            </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">variants</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">NewVariant</span><span class="p">::</span><span class="n">from</span><span class="p">).</span><span class="n">collect</span><span class="p">(),</span>
-<span class="w">            </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">versions</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">NewVersion</span><span class="p">::</span><span class="n">from</span><span class="p">).</span><span class="n">collect</span><span class="p">(),</span>
+<span class="w">            </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span>
+<span class="w">                </span><span class="p">.</span><span class="n">variants</span>
+<span class="w">                </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">VariantInput</span><span class="p">::</span><span class="n">from</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="n">collect</span><span class="p">(),</span>
+<span class="w">            </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span>
+<span class="w">                </span><span class="p">.</span><span class="n">versions</span>
+<span class="w">                </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">VersionInput</span><span class="p">::</span><span class="n">from</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="n">collect</span><span class="p">(),</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VariantRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">NewVariant</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VariantRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VariantInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">VariantRequest</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">NewVariant</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">VariantInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">sku</span><span class="p">,</span>
 <span class="w">            </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
 <span class="w">            </span><span class="n">price_cents</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">price_cents</span><span class="p">,</span>
@@ -13241,9 +13257,9 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VersionRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">NewVersion</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VersionRequest</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VersionInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">VersionRequest</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">NewVersion</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">VersionInput</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">number</span><span class="p">,</span>
 <span class="w">            </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">notes</span><span class="p">,</span>
 <span class="w">            </span><span class="n">released_on</span><span class="p">:</span><span class="w"> </span><span class="nc">request</span><span class="p">.</span><span class="n">released_on</span><span class="p">,</span>
@@ -13338,9 +13354,9 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="s">                &quot;versions&quot;: [{&quot;number&quot;: 1, &quot;releasedOn&quot;: &quot;2026-01-31&quot;, &quot;variantSkus&quot;: [&quot;A-1&quot;]}]}&quot;#</span><span class="p">,</span>
 <span class="w">        </span><span class="p">)</span>
 <span class="w">        </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">new</span><span class="p">.</span><span class="n">variants</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">price_cents</span><span class="p">,</span><span class="w"> </span><span class="mi">999</span><span class="p">);</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">new</span><span class="p">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">released_on</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;2026-01-31&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProductInput</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">input</span><span class="p">.</span><span class="n">variants</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">price_cents</span><span class="p">,</span><span class="w"> </span><span class="mi">999</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">input</span><span class="p">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">released_on</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;2026-01-31&quot;</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span></code></pre></figure>
 
@@ -13352,16 +13368,87 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w"> </span>use std::hash::Hash;
 <span class="w"> </span>
 <span class="gd">-use crate::model::NewProduct;</span>
-<span class="gi">+use super::entity::NewProduct;</span>
+<span class="gi">+use super::entity::ProductInput;</span>
 <span class="w"> </span>
 <span class="w"> </span>/// A product that breaks one of the rules. Each variant says which rule,
-<span class="gu">@@ -100,5 +100,5 @@</span>
+<span class="gu">@@ -55,15 +55,15 @@</span>
+<span class="w"> </span>
+<span class="w"> </span>/// Checks the rules that need only the product itself.
+<span class="gd">-pub fn validate(new: &amp;NewProduct) -&gt; Result&lt;(), ValidationError&gt; {</span>
+<span class="gd">-    if new.name.trim().is_empty() {</span>
+<span class="gi">+pub fn validate(input: &amp;ProductInput) -&gt; Result&lt;(), ValidationError&gt; {</span>
+<span class="gi">+    if input.name.trim().is_empty() {</span>
+<span class="w"> </span>        return Err(ValidationError::EmptyName);
+<span class="w"> </span>    }
+<span class="gd">-    if new.brand.trim().is_empty() {</span>
+<span class="gi">+    if input.brand.trim().is_empty() {</span>
+<span class="w"> </span>        return Err(ValidationError::EmptyBrand);
+<span class="w"> </span>    }
+<span class="gd">-    if new.variants.iter().any(|v| v.sku.trim().is_empty()) {</span>
+<span class="gi">+    if input.variants.iter().any(|v| v.sku.trim().is_empty()) {</span>
+<span class="w"> </span>        return Err(ValidationError::EmptySku);
+<span class="w"> </span>    }
+<span class="gd">-    if let Some(v) = new.variants.iter().find(|v| v.price_cents &lt;= 0) {</span>
+<span class="gi">+    if let Some(v) = input.variants.iter().find(|v| v.price_cents &lt;= 0) {</span>
+<span class="w"> </span>        return Err(ValidationError::PriceNotPositive {
+<span class="w"> </span>            sku: v.sku.clone(),
+<span class="gu">@@ -71,13 +71,13 @@</span>
+<span class="w"> </span>        });
+<span class="w"> </span>    }
+<span class="gd">-    let skus = new.variants.iter().map(|v| v.sku.as_str());</span>
+<span class="gi">+    let skus = input.variants.iter().map(|v| v.sku.as_str());</span>
+<span class="w"> </span>    if let Some(sku) = find_duplicate(skus.clone()) {
+<span class="w"> </span>        return Err(ValidationError::DuplicateSku(sku.to_string()));
+<span class="w"> </span>    }
+<span class="w"> </span>    let skus: HashSet&lt;&amp;str&gt; = skus.collect();
+<span class="gd">-    if let Some(v) = new.versions.iter().find(|v| v.number &lt;= 0) {</span>
+<span class="gi">+    if let Some(v) = input.versions.iter().find(|v| v.number &lt;= 0) {</span>
+<span class="w"> </span>        return Err(ValidationError::VersionNumberNotPositive(v.number));
+<span class="w"> </span>    }
+<span class="gd">-    for version in &amp;new.versions {</span>
+<span class="gi">+    for version in &amp;input.versions {</span>
+<span class="w"> </span>        if let Some(sku) = version
+<span class="w"> </span>            .variant_skus
+<span class="gu">@@ -91,5 +91,5 @@</span>
+<span class="w"> </span>        }
+<span class="w"> </span>    }
+<span class="gd">-    if let Some(number) = find_duplicate(new.versions.iter().map(|v| v.number)) {</span>
+<span class="gi">+    if let Some(number) = find_duplicate(input.versions.iter().map(|v| v.number)) {</span>
+<span class="w"> </span>        return Err(ValidationError::DuplicateVersion(number));
+<span class="w"> </span>    }
+<span class="gu">@@ -100,14 +100,14 @@</span>
 <span class="w"> </span>mod tests {
 <span class="w"> </span>    use super::*;
 <span class="gd">-    use crate::model::{NewVariant, NewVersion};</span>
-<span class="gi">+    use crate::products::entity::{NewVariant, NewVersion};</span>
+<span class="gi">+    use crate::products::entity::{VariantInput, VersionInput};</span>
 <span class="w"> </span>
-<span class="w"> </span>    /// A valid product with two variants and two versions.</code></pre></figure></div></details>
+<span class="w"> </span>    /// A valid product with two variants and two versions.
+<span class="gd">-    fn valid() -&gt; NewProduct {</span>
+<span class="gd">-        let variant = |sku: &amp;str| NewVariant {</span>
+<span class="gi">+    fn valid() -&gt; ProductInput {</span>
+<span class="gi">+        let variant = |sku: &amp;str| VariantInput {</span>
+<span class="w"> </span>            sku: sku.to_string(),
+<span class="w"> </span>            description: String::new(),
+<span class="w"> </span>            price_cents: 1000,
+<span class="w"> </span>        };
+<span class="gd">-        let version = |number, skus: &amp;[&amp;str]| NewVersion {</span>
+<span class="gi">+        let version = |number, skus: &amp;[&amp;str]| VersionInput {</span>
+<span class="w"> </span>            number,
+<span class="w"> </span>            notes: String::new(),
+<span class="gu">@@ -115,5 +115,5 @@</span>
+<span class="w"> </span>            variant_skus: skus.iter().map(|s| s.to_string()).collect(),
+<span class="w"> </span>        };
+<span class="gd">-        NewProduct {</span>
+<span class="gi">+        ProductInput {</span>
+<span class="w"> </span>            name: &quot;Shoe&quot;.to_string(),
+<span class="w"> </span>            brand: &quot;Brand&quot;.to_string(),
+<span class="gu">@@ -131,5 +131,5 @@</span>
+<span class="w"> </span>    #[test]
+<span class="w"> </span>    fn each_rule_has_its_own_error() {
+<span class="gd">-        type Change = fn(&amp;mut NewProduct);</span>
+<span class="gi">+        type Change = fn(&amp;mut ProductInput);</span>
+<span class="w"> </span>        let cases: Vec&lt;(Change, ValidationError)&gt; = vec![
+<span class="w"> </span>            (|p| p.name = &quot;  &quot;.into(), ValidationError::EmptyName),</code></pre></figure></div></details>
 <p>The repository is step 21's <code>Catalog</code>, moved from <code>store.rs</code>. It keeps doing what a database's constraints will do in Chapter 25: hand out ids and keep names and SKUs unique. Two things leave it. Validation moves up to the service, which decides what a valid product is; the repository only stores. And <code>ProductFilter::matches</code> becomes a private function here, because filtering is how this storage answers a query, the in-memory version of a <code>WHERE</code> clause. The <code>SharedCatalog</code> alias goes: the service holds the <code>Arc&lt;Mutex&lt;Catalog&gt;&gt;</code> now. Most of the diff is the entities' new names.</p>
 <details class="changes"><summary><span class="changes-title">Changes since step 21</span><span class="changes-count">1 file</span><span class="changes-files"><code>src/products/service/repo.rs (moved)</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/service/repo.rs (moved)" data-diff-since="21"><figcaption><span class="code-title">src/products/service/repo.rs (moved from src/store.rs; changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/store.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
@@ -13383,7 +13470,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-use crate::model::{</span>
 <span class="gd">-    Image, NewProduct, NewVariant, NewVersion, Product, ProductFilter, Variant, Version,</span>
 <span class="gi">+use crate::products::entity::{</span>
-<span class="gi">+    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
+<span class="gi">+    Image, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity, VersionInput,</span>
 <span class="w"> </span>};
 <span class="gd">-use crate::validate::validate;</span>
 <span class="gi">+use crate::products::model::ProductFilter;</span>
@@ -13407,34 +13494,60 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-</span>
 <span class="w"> </span>/// Returns the counter&#39;s value and advances it.
 <span class="w"> </span>fn next(counter: &amp;mut i64) -&gt; i64 {
-<span class="gu">@@ -45,12 +43,11 @@</span>
+<span class="gu">@@ -45,16 +43,15 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gd">-    /// Validates and stores a new product, and returns it with its ids.</span>
 <span class="gd">-    pub fn create(&amp;mut self, new: NewProduct) -&gt; Result&lt;&amp;Product, CatalogError&gt; {</span>
 <span class="gd">-        validate(&amp;new)?;</span>
+<span class="gd">-        self.check_unique(&amp;new, None)?;</span>
 <span class="gi">+    /// Stores a new product and returns it with its ids.</span>
-<span class="gi">+    pub fn create(&amp;mut self, new: NewProduct) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
-<span class="w"> </span>        self.check_unique(&amp;new, None)?;
+<span class="gi">+    pub fn create(&amp;mut self, input: ProductInput) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
+<span class="gi">+        self.check_unique(&amp;input, None)?;</span>
 <span class="w"> </span>        let id = next(&amp;mut self.next_product_id);
-<span class="w"> </span>        let variants = self.build_variants(new.variants, Vec::new());
-<span class="w"> </span>        let versions = self.build_versions(new.versions);
+<span class="gd">-        let variants = self.build_variants(new.variants, Vec::new());</span>
+<span class="gd">-        let versions = self.build_versions(new.versions);</span>
 <span class="gd">-        let product = Product {</span>
+<span class="gi">+        let variants = self.build_variants(input.variants, Vec::new());</span>
+<span class="gi">+        let versions = self.build_versions(input.versions);</span>
 <span class="gi">+        let product = ProductEntity {</span>
 <span class="w"> </span>            id,
-<span class="w"> </span>            name: new.name,
-<span class="gu">@@ -66,9 +63,8 @@</span>
+<span class="gd">-            name: new.name,</span>
+<span class="gd">-            brand: new.brand,</span>
+<span class="gd">-            description: new.description,</span>
+<span class="gi">+            name: input.name,</span>
+<span class="gi">+            brand: input.brand,</span>
+<span class="gi">+            description: input.description,</span>
+<span class="w"> </span>            image: None,
+<span class="w"> </span>            variants,
+<span class="gu">@@ -66,10 +63,9 @@</span>
 <span class="w"> </span>    /// Replaces a product&#39;s fields, variants and versions. A variant whose
 <span class="w"> </span>    /// SKU was there before keeps its id and image; versions are rebuilt.
 <span class="gd">-    pub fn update(&amp;mut self, id: i64, new: NewProduct) -&gt; Result&lt;&amp;Product, CatalogError&gt; {</span>
-<span class="gi">+    pub fn update(&amp;mut self, id: i64, new: NewProduct) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
+<span class="gi">+    pub fn update(&amp;mut self, id: i64, input: ProductInput) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
 <span class="w"> </span>        if !self.products.contains_key(&amp;id) {
 <span class="w"> </span>            return Err(CatalogError::NotFound(id));
 <span class="w"> </span>        }
 <span class="gd">-        validate(&amp;new)?;</span>
-<span class="w"> </span>        self.check_unique(&amp;new, Some(id))?;
+<span class="gd">-        self.check_unique(&amp;new, Some(id))?;</span>
+<span class="gi">+        self.check_unique(&amp;input, Some(id))?;</span>
 <span class="w"> </span>        // Take the product out of the map, change it, and put it back
-<span class="gu">@@ -87,18 +83,18 @@</span>
+<span class="w"> </span>        let mut product = self
+<span class="gu">@@ -78,27 +74,27 @@</span>
+<span class="w"> </span>            .ok_or(CatalogError::NotFound(id))?;
+<span class="w"> </span>        let old = std::mem::take(&amp;mut product.variants);
+<span class="gd">-        product.variants = self.build_variants(new.variants, old);</span>
+<span class="gd">-        product.versions = self.build_versions(new.versions);</span>
+<span class="gd">-        product.name = new.name;</span>
+<span class="gd">-        product.brand = new.brand;</span>
+<span class="gd">-        product.description = new.description;</span>
+<span class="gi">+        product.variants = self.build_variants(input.variants, old);</span>
+<span class="gi">+        product.versions = self.build_versions(input.versions);</span>
+<span class="gi">+        product.name = input.name;</span>
+<span class="gi">+        product.brand = input.brand;</span>
+<span class="gi">+        product.description = input.description;</span>
+<span class="w"> </span>        Ok(self.products.entry(id).or_insert(product))
+<span class="w"> </span>    }
 <span class="w"> </span>
 <span class="w"> </span>    /// Removes a product and gives it back to the caller.
 <span class="gd">-    pub fn delete(&amp;mut self, id: i64) -&gt; Result&lt;Product, CatalogError&gt; {</span>
@@ -13457,35 +13570,55 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gi">+    pub fn get(&amp;self, id: i64) -&gt; Option&lt;&amp;ProductEntity&gt; {</span>
 <span class="w"> </span>        self.products.get(&amp;id)
 <span class="w"> </span>    }
-<span class="gu">@@ -155,5 +151,9 @@</span>
+<span class="gu">@@ -138,10 +134,10 @@</span>
+<span class="w"> </span>    /// Names and SKUs are unique across the catalog. `except` is the
+<span class="w"> </span>    /// product being updated, which may keep its own name and SKUs.
+<span class="gd">-    fn check_unique(&amp;self, new: &amp;NewProduct, except: Option&lt;i64&gt;) -&gt; Result&lt;(), CatalogError&gt; {</span>
+<span class="gi">+    fn check_unique(&amp;self, input: &amp;ProductInput, except: Option&lt;i64&gt;) -&gt; Result&lt;(), CatalogError&gt; {</span>
+<span class="w"> </span>        let others = || self.products.values().filter(|p| Some(p.id) != except);
+<span class="gd">-        if others().any(|p| p.name == new.name) {</span>
+<span class="gd">-            return Err(CatalogError::DuplicateName(new.name.clone()));</span>
+<span class="gi">+        if others().any(|p| p.name == input.name) {</span>
+<span class="gi">+            return Err(CatalogError::DuplicateName(input.name.clone()));</span>
+<span class="w"> </span>        }
+<span class="gd">-        let taken = new</span>
+<span class="gi">+        let taken = input</span>
+<span class="w"> </span>            .variants
+<span class="w"> </span>            .iter()
+<span class="gu">@@ -155,6 +151,11 @@</span>
 <span class="w"> </span>    /// Turns new variants into stored ones. A SKU found in `old` keeps
 <span class="w"> </span>    /// that variant&#39;s id and image.
 <span class="gd">-    fn build_variants(&amp;mut self, new: Vec&lt;NewVariant&gt;, mut old: Vec&lt;Variant&gt;) -&gt; Vec&lt;Variant&gt; {</span>
+<span class="gd">-        new.into_iter()</span>
 <span class="gi">+    fn build_variants(</span>
 <span class="gi">+        &amp;mut self,</span>
-<span class="gi">+        new: Vec&lt;NewVariant&gt;,</span>
+<span class="gi">+        input: Vec&lt;VariantInput&gt;,</span>
 <span class="gi">+        mut old: Vec&lt;VariantEntity&gt;,</span>
 <span class="gi">+    ) -&gt; Vec&lt;VariantEntity&gt; {</span>
-<span class="w"> </span>        new.into_iter()
+<span class="gi">+        input</span>
+<span class="gi">+            .into_iter()</span>
 <span class="w"> </span>            .map(|v| {
-<span class="gu">@@ -164,5 +164,5 @@</span>
+<span class="w"> </span>                let previous = old.iter_mut().find(|p| p.sku == v.sku);
+<span class="gu">@@ -164,5 +165,5 @@</span>
 <span class="w"> </span>                    None =&gt; (next(&amp;mut self.next_variant_id), None),
 <span class="w"> </span>                };
 <span class="gd">-                Variant {</span>
 <span class="gi">+                VariantEntity {</span>
 <span class="w"> </span>                    id,
 <span class="w"> </span>                    sku: v.sku,
-<span class="gu">@@ -175,7 +175,7 @@</span>
+<span class="gu">@@ -175,7 +176,8 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gd">-    fn build_versions(&amp;mut self, new: Vec&lt;NewVersion&gt;) -&gt; Vec&lt;Version&gt; {</span>
-<span class="gi">+    fn build_versions(&amp;mut self, new: Vec&lt;NewVersion&gt;) -&gt; Vec&lt;VersionEntity&gt; {</span>
-<span class="w"> </span>        new.into_iter()
+<span class="gd">-        new.into_iter()</span>
 <span class="gd">-            .map(|v| Version {</span>
+<span class="gi">+    fn build_versions(&amp;mut self, input: Vec&lt;VersionInput&gt;) -&gt; Vec&lt;VersionEntity&gt; {</span>
+<span class="gi">+        input</span>
+<span class="gi">+            .into_iter()</span>
 <span class="gi">+            .map(|v| VersionEntity {</span>
 <span class="w"> </span>                id: next(&amp;mut self.next_version_id),
 <span class="w"> </span>                number: v.number,
-<span class="gu">@@ -195,9 +195,26 @@</span>
+<span class="gu">@@ -195,12 +197,29 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+/// The in-memory version of the filter&#39;s `WHERE` clause.</span>
@@ -13513,8 +13646,27 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-    use crate::model::ProductFilter;</span>
 <span class="gd">-    use crate::validate::ValidationError;</span>
 <span class="w"> </span>
-<span class="w"> </span>    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; NewProduct {
-<span class="gu">@@ -253,11 +270,4 @@</span>
+<span class="gd">-    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; NewProduct {</span>
+<span class="gd">-        NewProduct {</span>
+<span class="gi">+    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; ProductInput {</span>
+<span class="gi">+        ProductInput {</span>
+<span class="w"> </span>            name: name.to_string(),
+<span class="w"> </span>            brand: &quot;Stride&quot;.to_string(),
+<span class="gu">@@ -208,5 +227,5 @@</span>
+<span class="w"> </span>            variants: skus
+<span class="w"> </span>                .iter()
+<span class="gd">-                .map(|sku| NewVariant {</span>
+<span class="gi">+                .map(|sku| VariantInput {</span>
+<span class="w"> </span>                    sku: sku.to_string(),
+<span class="w"> </span>                    description: String::new(),
+<span class="gu">@@ -214,5 +233,5 @@</span>
+<span class="w"> </span>                })
+<span class="w"> </span>                .collect(),
+<span class="gd">-            versions: vec![NewVersion {</span>
+<span class="gi">+            versions: vec![VersionInput {</span>
+<span class="w"> </span>                number: 1,
+<span class="w"> </span>                notes: String::new(),
+<span class="gu">@@ -253,11 +272,4 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>    #[test]
 <span class="gd">-    fn invalid_products_are_rejected_with_the_reason() {</span>
@@ -13526,7 +13678,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-    #[test]</span>
 <span class="w"> </span>    fn update_keeps_ids_and_images_of_kept_skus() {
 <span class="w"> </span>        let mut catalog = Catalog::new();
-<span class="gu">@@ -317,3 +327,30 @@</span>
+<span class="gu">@@ -317,3 +329,30 @@</span>
 <span class="w"> </span>        );
 <span class="w"> </span>    }
 <span class="gi">+</span>
@@ -13574,7 +13726,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 
 <span class="k">use</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">Catalog</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">ProductInput</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">validate</span><span class="p">::</span><span class="n">validate</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
@@ -13608,16 +13760,20 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">            </span><span class="p">.</span><span class="n">ok_or</span><span class="p">(</span><span class="n">CatalogError</span><span class="p">::</span><span class="n">NotFound</span><span class="p">(</span><span class="n">id</span><span class="p">))</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">create</span><span class="p">(</span><span class="n">new</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductInput</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">input</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">create</span><span class="p">(</span><span class="n">input</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="sd">/// Replaces the product. A variant whose SKU was there before keeps its</span>
 <span class="w">    </span><span class="sd">/// id and image; versions are rebuilt.</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">update</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
+<span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span>
+<span class="w">        </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductInput</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">input</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">update</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
@@ -14688,7 +14844,7 @@ $ curl -s -X POST localhost:3101/products -d @new-product.json -w &quot;  %{http
 <span class="w"> </span>async fn put_variant_image(</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service.rs</span>
 <span class="gi">+++ b/src/products/service.rs</span>
-<span class="gu">@@ -63,4 +63,8 @@</span>
+<span class="gu">@@ -67,4 +67,8 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gi">+    pub async fn remove_product_image(&amp;self, id: i64) -&gt; Result&lt;Image, CatalogError&gt; {</span>
@@ -14752,7 +14908,7 @@ test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure>
 <p><strong>New functions:</strong> routes (<code>delete_product_image</code>), service (<code>remove_product_image</code>) and repository (<code>Catalog::remove_product_image</code>). <strong>Unchanged:</strong> <code>model.rs</code> and <code>mapper.rs</code>, because no JSON goes in or out; <code>entity.rs</code>, because <code>image</code> is already an <code>Option</code>; <code>validate.rs</code>; and <code>error.rs</code>, because <code>NotFound</code> and <code>NoImage</code> already become 404 with a message.</p></div></details></li>
-<li>Make the create and update requests differ: an update must include <code>expectedName</code>, and the service refuses it with 409 when the stored name is different. Only the DTO, the mapper, the service and the repository should change; the entity's <code>NewProduct</code> may gain a field.<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The update DTO gets a required <code>expectedName</code>. <code>NewProduct</code> gets an <code>expected_name: Option&lt;String&gt;</code>: the update mapper sets <code>Some</code> and the create mapper sets <code>None</code>. That way the routes still call <code>service.update(id, request.into())</code> and don't change.</p>
+<li>Make the create and update requests differ: an update must include <code>expectedName</code>, and the service refuses it with 409 when the stored name is different. Only the DTO, the mapper, the service and the repository should change; the entity's <code>ProductInput</code> may gain a field.<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The update DTO gets a required <code>expectedName</code>. <code>ProductInput</code> gets an <code>expected_name: Option&lt;String&gt;</code>: the update mapper sets <code>Some</code> and the create mapper sets <code>None</code>. That way the routes still call <code>service.update(id, request.into())</code> and don't change.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/model.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/model.rs</span>
 <span class="gi">+++ b/src/products/model.rs</span>
 <span class="gu">@@ -23,11 +23,11 @@</span>
@@ -14775,7 +14931,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+++ b/src/products/entity.rs</span>
 <span class="gu">@@ -140,4 +140,6 @@</span>
 <span class="w"> </span>#[derive(Clone, Debug, PartialEq)]
-<span class="w"> </span>pub struct NewProduct {
+<span class="w"> </span>pub struct ProductInput {
 <span class="gi">+    /// For a replacement: the name the stored product must still have</span>
 <span class="gi">+    pub expected_name: Option&lt;String&gt;,</span>
 <span class="w"> </span>    pub name: String,
@@ -14784,31 +14940,34 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+++ b/src/products/mapper.rs</span>
 <span class="gu">@@ -18,4 +18,5 @@</span>
 <span class="w"> </span>    fn from(request: ProductCreateRequest) -&gt; Self {
-<span class="w"> </span>        NewProduct {
+<span class="w"> </span>        ProductInput {
 <span class="gi">+            expected_name: None,</span>
 <span class="w"> </span>            name: request.name,
 <span class="w"> </span>            brand: request.brand,
-<span class="gu">@@ -30,4 +31,5 @@</span>
+<span class="gu">@@ -38,4 +39,5 @@</span>
 <span class="w"> </span>    fn from(request: ProductUpdateRequest) -&gt; Self {
-<span class="w"> </span>        NewProduct {
+<span class="w"> </span>        ProductInput {
 <span class="gi">+            expected_name: Some(request.expected_name),</span>
 <span class="w"> </span>            name: request.name,
 <span class="w"> </span>            brand: request.brand,</code></pre></figure>
 <p>The service makes the decision. It keeps one guard for the check and the update, because two separate <code>self.catalog()</code> calls would let another request rename the product in between. None of the existing 409 variants says what went wrong (<code>DuplicateName</code> would claim that another product has the name), so <code>CatalogError</code> gets a <code>NameChanged</code> variant. The <code>match</code> in <code>into_response</code> has no catch-all arm, so the compiler asks for its status.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service.rs</span>
 <span class="gi">+++ b/src/products/service.rs</span>
-<span class="gu">@@ -49,8 +49,19 @@</span>
+<span class="gu">@@ -49,5 +49,6 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>    /// Replaces the product. A variant whose SKU was there before keeps its
 <span class="gd">-    /// id and image; versions are rebuilt.</span>
 <span class="gi">+    /// id and image; versions are rebuilt. The name check and the update</span>
 <span class="gi">+    /// happen under one lock, so no rename can slip in between.</span>
-<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
-<span class="w"> </span>        validate(&amp;new)?;
-<span class="gd">-        self.catalog().update(id, new).cloned()</span>
+<span class="w"> </span>    pub async fn update(
+<span class="w"> </span>        &amp;self,
+<span class="gu">@@ -56,5 +57,15 @@</span>
+<span class="w"> </span>    ) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
+<span class="w"> </span>        validate(&amp;input)?;
+<span class="gd">-        self.catalog().update(id, input).cloned()</span>
 <span class="gi">+        let mut catalog = self.catalog();</span>
 <span class="gi">+        let stored = catalog.get(id).ok_or(CatalogError::NotFound(id))?;</span>
-<span class="gi">+        if let Some(expected) = &amp;new.expected_name</span>
+<span class="gi">+        if let Some(expected) = &amp;input.expected_name</span>
 <span class="gi">+            &amp;&amp; *expected != stored.name</span>
 <span class="gi">+        {</span>
 <span class="gi">+            return Err(CatalogError::NameChanged {</span>
@@ -14816,7 +14975,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+                stored: stored.name.clone(),</span>
 <span class="gi">+            });</span>
 <span class="gi">+        }</span>
-<span class="gi">+        catalog.update(id, new).cloned()</span>
+<span class="gi">+        catalog.update(id, input).cloned()</span>
 <span class="w"> </span>    }
 <span class="w"> </span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/error.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/error.rs</span>
@@ -14844,12 +15003,12 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+            | CatalogError::NameChanged { .. } =&gt; StatusCode::CONFLICT,</span>
 <span class="w"> </span>            CatalogError::NotAnImage =&gt; StatusCode::UNSUPPORTED_MEDIA_TYPE,
 <span class="w"> </span>        };</code></pre></figure>
-<p>The new field breaks every <code>NewProduct { ... }</code> literal. In the repository and in <code>validate.rs</code>, those are only the tests' helpers. The repository code itself doesn't change: the check needs the stored product, and the service already reads it with <code>get</code>. The curl request file used in the chapter needs the new field too.</p>
+<p>The new field breaks every <code>ProductInput { ... }</code> literal. In the repository and in <code>validate.rs</code>, those are only the tests' helpers. The repository code itself doesn't change: the check needs the stored product, and the service already reads it with <code>get</code>. The curl request file used in the chapter needs the new field too.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -220,4 +220,5 @@</span>
-<span class="w"> </span>    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; NewProduct {
-<span class="w"> </span>        NewProduct {
+<span class="gu">@@ -222,4 +222,5 @@</span>
+<span class="w"> </span>    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; ProductInput {
+<span class="w"> </span>        ProductInput {
 <span class="gi">+            expected_name: None,</span>
 <span class="w"> </span>            name: name.to_string(),
 <span class="w"> </span>            brand: &quot;Stride&quot;.to_string(),</code></pre></figure>
@@ -14857,7 +15016,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+++ b/src/products/validate.rs</span>
 <span class="gu">@@ -116,4 +116,5 @@</span>
 <span class="w"> </span>        };
-<span class="w"> </span>        NewProduct {
+<span class="w"> </span>        ProductInput {
 <span class="gi">+            expected_name: None,</span>
 <span class="w"> </span>            name: &quot;Shoe&quot;.to_string(),
 <span class="w"> </span>            brand: &quot;Brand&quot;.to_string(),</code></pre></figure>
@@ -15114,7 +15273,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+</span>
 <span class="w"> </span>    /// The lock is held only while synchronous code runs: no method awaits
 <span class="w"> </span>    /// anything while holding the guard. The methods are `async` anyway,
-<span class="gu">@@ -59,4 +70,16 @@</span>
+<span class="gu">@@ -63,4 +74,16 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gi">+    /// The product&#39;s reviews, from the reviews service. An unknown product</span>
@@ -15176,8 +15335,8 @@ note: future is not `Send` as this value is used across an await
 <span class="w"> </span>};
 <span class="gi">+use crate::reviews::Review;</span>
 <span class="w"> </span>
-<span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for NewProduct {
-<span class="gu">@@ -106,4 +107,14 @@</span>
+<span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for ProductInput {
+<span class="gu">@@ -122,4 +123,14 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+impl From&lt;Review&gt; for ReviewResponse {</span>
@@ -15340,7 +15499,7 @@ note: future is not `Send` as this value is used across an await
 <span class="p">}</span></code></pre></figure>
 <details class="changes"><summary><span class="changes-title">Changes since step 22</span><span class="changes-count">1 file</span><span class="changes-files"><code>src/products/service/repo.rs</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/service/repo.rs" data-diff-since="22"><figcaption><span class="code-title">src/products/service/repo.rs (changes since step 22)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -258,12 +258,9 @@</span>
+<span class="gu">@@ -260,12 +260,9 @@</span>
 <span class="w"> </span>        let mut catalog = Catalog::new();
 <span class="w"> </span>        catalog.create(shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).unwrap();
 <span class="gd">-        assert_eq!(</span>
@@ -15358,7 +15517,7 @@ note: future is not `Send` as this value is used across an await
 <span class="gi">+        assert!(matches!(result, Err(CatalogError::DuplicateSku(sku)) if sku == &quot;A1&quot;));</span>
 <span class="w"> </span>        assert_eq!(catalog.list(&amp;ProductFilter::default()).len(), 1);
 <span class="w"> </span>    }
-<span class="gu">@@ -290,12 +287,8 @@</span>
+<span class="gu">@@ -292,12 +289,8 @@</span>
 <span class="w"> </span>        catalog.create(shoe(&quot;B&quot;, &amp;[&quot;B1&quot;])).unwrap();
 <span class="w"> </span>        assert!(catalog.update(1, shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).is_ok());
 <span class="gd">-        assert_eq!(</span>
@@ -15375,14 +15534,14 @@ note: future is not `Send` as this value is used across an await
 <span class="gi">+        assert!(matches!(result, Err(CatalogError::NotFound(9)))); // 404 before 409</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -305,5 +298,5 @@</span>
+<span class="gu">@@ -307,5 +300,5 @@</span>
 <span class="w"> </span>        catalog.create(shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).unwrap();
 <span class="w"> </span>        assert_eq!(catalog.delete(1).unwrap().name, &quot;A&quot;);
 <span class="gd">-        assert_eq!(catalog.delete(1).unwrap_err(), CatalogError::NotFound(1));</span>
 <span class="gi">+        assert!(matches!(catalog.delete(1), Err(CatalogError::NotFound(1))));</span>
 <span class="w"> </span>        assert!(catalog.get(1).is_none());
 <span class="w"> </span>    }
-<span class="gu">@@ -315,15 +308,8 @@</span>
+<span class="gu">@@ -317,15 +310,8 @@</span>
 <span class="w"> </span>        assert!(catalog.set_product_image(1, png()).is_ok());
 <span class="w"> </span>        assert_eq!(catalog.get(1).unwrap().image, Some(png()));
 <span class="gd">-        assert_eq!(</span>
@@ -15776,7 +15935,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>        reviews.into_iter().map(ReviewResponse::from).collect(),</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service.rs</span>
 <span class="gi">+++ b/src/products/service.rs</span>
-<span class="gu">@@ -74,10 +74,10 @@</span>
+<span class="gu">@@ -78,10 +78,10 @@</span>
 <span class="w"> </span>    /// before the `.await`: `exists` is computed in one statement, and the
 <span class="w"> </span>    /// guard is a temporary dropped at its end.
 <span class="gd">-    pub async fn reviews(&amp;self, id: i64) -&gt; Result&lt;Vec&lt;Review&gt;, CatalogError&gt; {</span>
@@ -16191,7 +16350,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; fini
 <span class="gi">+</span>
 <span class="w"> </span>/// The handle the routes hold. Cloning it clones an `Arc` and a client
 <span class="w"> </span>/// handle, so every clone shares one catalog and one connection pool. The
-<span class="gu">@@ -74,10 +87,15 @@</span>
+<span class="gu">@@ -78,10 +91,15 @@</span>
 <span class="w"> </span>    /// before the `.await`: `exists` is computed in one statement, and the
 <span class="w"> </span>    /// guard is a temporary dropped at its end.
 <span class="gd">-    pub async fn reviews(&amp;self, id: i64) -&gt; Result&lt;Vec&lt;Review&gt;, CatalogError&gt; {</span>
@@ -16209,7 +16368,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; fini
 <span class="gi">+        Ok(rated.collect())</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -113,2 +131,15 @@</span>
+<span class="gu">@@ -117,2 +135,15 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>}
 <span class="gi">+</span>
@@ -16242,8 +16401,8 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; fini
 <span class="gd">-use crate::reviews::Review;</span>
 <span class="gi">+use super::service::RatedReview;</span>
 <span class="w"> </span>
-<span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for NewProduct {
-<span class="gu">@@ -107,10 +107,11 @@</span>
+<span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for ProductInput {
+<span class="gu">@@ -123,10 +123,11 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gd">-impl From&lt;Review&gt; for ReviewResponse {</span>
@@ -16549,21 +16708,21 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="w"> </span>use repo::Catalog;
 <span class="gi">+use tracing::info;</span>
 <span class="w"> </span>
-<span class="w"> </span>use super::entity::{Image, NewProduct, ProductEntity};
+<span class="w"> </span>use super::entity::{Image, ProductEntity, ProductInput};
 <span class="gu">@@ -56,5 +57,7 @@</span>
-<span class="w"> </span>    pub async fn create(&amp;self, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
-<span class="w"> </span>        validate(&amp;new)?;
-<span class="gd">-        self.catalog().create(new).cloned()</span>
-<span class="gi">+        let product = self.catalog().create(new).cloned()?;</span>
+<span class="w"> </span>    pub async fn create(&amp;self, input: ProductInput) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
+<span class="w"> </span>        validate(&amp;input)?;
+<span class="gd">-        self.catalog().create(input).cloned()</span>
+<span class="gi">+        let product = self.catalog().create(input).cloned()?;</span>
 <span class="gi">+        info!(id = product.id, name = %product.name, &quot;product created&quot;);</span>
 <span class="gi">+        Ok(product)</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -63,9 +66,13 @@</span>
-<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
-<span class="w"> </span>        validate(&amp;new)?;
-<span class="gd">-        self.catalog().update(id, new).cloned()</span>
-<span class="gi">+        let product = self.catalog().update(id, new).cloned()?;</span>
+<span class="gu">@@ -67,9 +70,13 @@</span>
+<span class="w"> </span>    ) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
+<span class="w"> </span>        validate(&amp;input)?;
+<span class="gd">-        self.catalog().update(id, input).cloned()</span>
+<span class="gi">+        let product = self.catalog().update(id, input).cloned()?;</span>
 <span class="gi">+        info!(id, variants = product.variants.len(), &quot;product updated&quot;);</span>
 <span class="gi">+        Ok(product)</span>
 <span class="w"> </span>    }
@@ -16575,7 +16734,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="gi">+        Ok(product)</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -83,5 +90,8 @@</span>
+<span class="gu">@@ -87,5 +94,8 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>    pub async fn set_product_image(&amp;self, id: i64, image: Image) -&gt; Result&lt;(), CatalogError&gt; {
 <span class="gd">-        self.catalog().set_product_image(id, image)</span>
@@ -16585,7 +16744,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="gi">+        Ok(())</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -97,5 +107,8 @@</span>
+<span class="gu">@@ -101,5 +111,8 @@</span>
 <span class="w"> </span>        image: Image,
 <span class="w"> </span>    ) -&gt; Result&lt;(), CatalogError&gt; {
 <span class="gd">-        self.catalog().set_variant_image(id, sku, image)</span>
@@ -16709,7 +16868,7 @@ $ curl -s -w &#39;%{http_code}\n&#39; -o /dev/null localhost:3000/products/1/rev
 <span class="gi">+use std::time::Instant;</span>
 <span class="w"> </span>
 <span class="w"> </span>use repo::Catalog;
-<span class="gu">@@ -86,5 +87,13 @@</span>
+<span class="gu">@@ -90,5 +91,13 @@</span>
 <span class="w"> </span>            return Err(CatalogError::NotFound(id));
 <span class="w"> </span>        }
 <span class="gd">-        Ok(self.reviews.for_product(id).await?)</span>
@@ -17289,14 +17448,14 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w"> </span>}
 <span class="w"> </span></code></pre></figure><figure class="code plain project" data-diff-file="src/products/mapper.rs" data-diff-since="24"><figcaption><span class="code-title">src/products/mapper.rs (changes since step 24)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -79,4 +79,6 @@</span>
+<span class="gu">@@ -95,4 +95,6 @@</span>
 <span class="w"> </span>                .map(VersionResponse::from)
 <span class="w"> </span>                .collect(),
 <span class="gi">+            created_at: product.created_at,</span>
 <span class="gi">+            updated_at: product.updated_at,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -141,4 +143,6 @@</span>
+<span class="gu">@@ -157,4 +159,6 @@</span>
 <span class="w"> </span>            variants: Vec::new(),
 <span class="w"> </span>            versions: Vec::new(),
 <span class="gi">+            created_at: chrono::DateTime::UNIX_EPOCH,</span>
@@ -17322,7 +17481,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">products</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span>
-<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">ProductInput</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantInput</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionInput</span><span class="p">,</span>
 <span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">products</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 
@@ -17471,36 +17630,36 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="sd">/// UNIQUE constraint, which becomes `DuplicateName`.</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">insert_product</span><span class="p">(</span>
 <span class="w">    </span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span>
-<span class="w">    </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">NewProduct</span><span class="p">,</span>
+<span class="w">    </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductInput</span><span class="p">,</span>
 <span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">sqlx</span><span class="p">::</span><span class="n">query_scalar</span><span class="o">!</span><span class="p">(</span>
 <span class="w">        </span><span class="s">&quot;INSERT INTO products (name, brand, description) VALUES ($1, $2, $3) RETURNING id&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
 <span class="w">    </span><span class="p">)</span>
 <span class="w">    </span><span class="p">.</span><span class="n">fetch_one</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">conn</span><span class="p">)</span>
 <span class="w">    </span><span class="p">.</span><span class="k">await</span>
-<span class="w">    </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="n">conflict</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="p">::</span><span class="n">DuplicateName</span><span class="p">(</span><span class="n">new</span><span class="p">.</span><span class="n">name</span><span class="p">.</span><span class="n">clone</span><span class="p">())))</span>
+<span class="w">    </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="n">conflict</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="p">::</span><span class="n">DuplicateName</span><span class="p">(</span><span class="n">input</span><span class="p">.</span><span class="n">name</span><span class="p">.</span><span class="n">clone</span><span class="p">())))</span>
 <span class="p">}</span>
 
 <span class="sd">/// Updates the product row. False if there&#39;s no product with this id.</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update_product</span><span class="p">(</span>
 <span class="w">    </span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span>
 <span class="w">    </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
-<span class="w">    </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">NewProduct</span><span class="p">,</span>
+<span class="w">    </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductInput</span><span class="p">,</span>
 <span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">updated</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sqlx</span><span class="p">::</span><span class="n">query</span><span class="o">!</span><span class="p">(</span>
 <span class="w">        </span><span class="s">&quot;UPDATE products SET name = $2, brand = $3, description = $4, updated_at = now()</span>
 <span class="s">         WHERE id = $1&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="n">id</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
-<span class="w">        </span><span class="n">new</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
 <span class="w">    </span><span class="p">)</span>
 <span class="w">    </span><span class="p">.</span><span class="n">execute</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">conn</span><span class="p">)</span>
 <span class="w">    </span><span class="p">.</span><span class="k">await</span>
-<span class="w">    </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="n">conflict</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="p">::</span><span class="n">DuplicateName</span><span class="p">(</span><span class="n">new</span><span class="p">.</span><span class="n">name</span><span class="p">.</span><span class="n">clone</span><span class="p">())))</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="n">conflict</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="p">::</span><span class="n">DuplicateName</span><span class="p">(</span><span class="n">input</span><span class="p">.</span><span class="n">name</span><span class="p">.</span><span class="n">clone</span><span class="p">())))</span><span class="o">?</span><span class="p">;</span>
 <span class="w">    </span><span class="nb">Ok</span><span class="p">(</span><span class="n">updated</span><span class="p">.</span><span class="n">rows_affected</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
 <span class="p">}</span>
 
@@ -17520,7 +17679,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">save_variants</span><span class="p">(</span>
 <span class="w">    </span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span>
 <span class="w">    </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
-<span class="w">    </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="n">NewVariant</span><span class="p">],</span>
+<span class="w">    </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="n">VariantInput</span><span class="p">],</span>
 <span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">skus</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">variants</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">sku</span><span class="p">.</span><span class="n">clone</span><span class="p">()).</span><span class="n">collect</span><span class="p">();</span>
 <span class="w">    </span><span class="n">sqlx</span><span class="p">::</span><span class="n">query</span><span class="o">!</span><span class="p">(</span>
@@ -17562,7 +17721,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">replace_versions</span><span class="p">(</span>
 <span class="w">    </span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span>
 <span class="w">    </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
-<span class="w">    </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="n">NewVersion</span><span class="p">],</span>
+<span class="w">    </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="n">VersionInput</span><span class="p">],</span>
 <span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Deleting the versions also deletes their links (ON DELETE CASCADE)</span>
 <span class="w">    </span><span class="n">sqlx</span><span class="p">::</span><span class="n">query</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;DELETE FROM versions WHERE product_id = $1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">)</span>
@@ -17701,7 +17860,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">use</span><span class="w"> </span><span class="n">sqlx</span><span class="p">::{</span><span class="n">PgConnection</span><span class="p">,</span><span class="w"> </span><span class="n">PgPool</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">tracing</span><span class="p">::</span><span class="n">info</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">ProductInput</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">validate</span><span class="p">::</span><span class="n">validate</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
@@ -17732,12 +17891,12 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w">        </span><span class="n">load_one</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">).</span><span class="k">await</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductInput</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">input</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">begin</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">insert_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">save_variants</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">.</span><span class="n">variants</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">replace_versions</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">.</span><span class="n">versions</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">insert_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">save_variants</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">variants</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">replace_versions</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">versions</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load_one</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">tx</span><span class="p">.</span><span class="n">commit</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">info</span><span class="o">!</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">%</span><span class="n">product</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;product created&quot;</span><span class="p">);</span>
@@ -17746,14 +17905,18 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="w">    </span><span class="sd">/// Replaces the product. A variant whose SKU was there before keeps its</span>
 <span class="w">    </span><span class="sd">/// row, so its id and image; versions are rebuilt.</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
+<span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span>
+<span class="w">        </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
+<span class="w">        </span><span class="n">input</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductInput</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">input</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">begin</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">repo</span><span class="p">::</span><span class="n">update_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">repo</span><span class="p">::</span><span class="n">update_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">CatalogError</span><span class="p">::</span><span class="n">NotFound</span><span class="p">(</span><span class="n">id</span><span class="p">));</span><span class="w"> </span><span class="c1">// dropping `tx` rolls it back</span>
 <span class="w">        </span><span class="p">}</span>
-<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">save_variants</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">.</span><span class="n">variants</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">replace_versions</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">.</span><span class="n">versions</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">save_variants</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">variants</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">replace_versions</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">versions</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load_one</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">tx</span><span class="p">.</span><span class="n">commit</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">info</span><span class="o">!</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">variants</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">product</span><span class="p">.</span><span class="n">variants</span><span class="p">.</span><span class="n">len</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;product updated&quot;</span><span class="p">);</span>
@@ -18823,9 +18986,9 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gu">@@ -13,5 +13,6 @@</span>
 <span class="w"> </span>use crate::error::CatalogError;
 <span class="w"> </span>use crate::products::entity::{
-<span class="gd">-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
-<span class="gi">+    Image, ImageInfo, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity,</span>
-<span class="gi">+    VersionEntity,</span>
+<span class="gd">-    Image, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity, VersionInput,</span>
+<span class="gi">+    Image, ImageInfo, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity,</span>
+<span class="gi">+    VersionInput,</span>
 <span class="w"> </span>};
 <span class="w"> </span>use crate::products::model::ProductFilter;
 <span class="gu">@@ -50,5 +51,6 @@</span>
@@ -18882,14 +19045,15 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="w"> </span>/// error stays a database error.</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -8,5 +8,5 @@</span>
+<span class="gu">@@ -8,5 +8,6 @@</span>
 <span class="w"> </span>//! would implement `TryFrom` instead.
 <span class="w"> </span>use super::entity::{
-<span class="gd">-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
-<span class="gi">+    ImageInfo, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
+<span class="gd">-    Image, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity, VersionInput,</span>
+<span class="gi">+    ImageInfo, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity,</span>
+<span class="gi">+    VersionInput,</span>
 <span class="w"> </span>};
 <span class="w"> </span>use super::model::{
-<span class="gu">@@ -120,9 +120,9 @@</span>
+<span class="gu">@@ -136,9 +137,9 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>/// Only the type and the size: the bytes stay out of the JSON.
 <span class="gd">-impl From&lt;&amp;Image&gt; for ImageResponse {</span>
@@ -18902,13 +19066,13 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gi">+            size: image.size,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -132,4 +132,5 @@</span>
+<span class="gu">@@ -148,4 +149,5 @@</span>
 <span class="w"> </span>mod tests {
 <span class="w"> </span>    use super::*;
 <span class="gi">+    use crate::products::entity::ImageType;</span>
 <span class="w"> </span>
 <span class="w"> </span>    #[test]
-<span class="gu">@@ -140,5 +141,8 @@</span>
+<span class="gu">@@ -156,5 +158,8 @@</span>
 <span class="w"> </span>            brand: &quot;B&quot;.into(),
 <span class="w"> </span>            description: String::new(),
 <span class="gd">-            image: Image::from_bytes(b&quot;\x89PNG\r\n\x1a\nrest&quot;.to_vec()),</span>
@@ -19005,24 +19169,23 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+use chrono::{DateTime, Utc};</span>
 <span class="w"> </span>use sqlx::{PgConnection, PgPool};
 <span class="w"> </span>use tracing::info;
-<span class="gu">@@ -57,10 +58,22 @@</span>
+<span class="gu">@@ -57,14 +58,22 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>    /// Replaces the product. A variant whose SKU was there before keeps its
 <span class="gd">-    /// row, so its id and image; versions are rebuilt.</span>
-<span class="gd">-    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
 <span class="gi">+    /// row, so its id and image; versions are rebuilt. With `last_seen`, only</span>
 <span class="gi">+    /// if the product&#39;s `updated_at` is still that value.</span>
-<span class="gi">+    pub async fn update(</span>
-<span class="gi">+        &amp;self,</span>
-<span class="gi">+        id: i64,</span>
-<span class="gi">+        new: NewProduct,</span>
+<span class="w"> </span>    pub async fn update(
+<span class="w"> </span>        &amp;self,
+<span class="w"> </span>        id: i64,
+<span class="w"> </span>        input: ProductInput,
 <span class="gi">+        last_seen: Option&lt;DateTime&lt;Utc&gt;&gt;,</span>
-<span class="gi">+    ) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
-<span class="w"> </span>        validate(&amp;new)?;
+<span class="w"> </span>    ) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
+<span class="w"> </span>        validate(&amp;input)?;
 <span class="w"> </span>        let mut tx = self.pool.begin().await?;
-<span class="gd">-        if !repo::update_product(&amp;mut tx, id, &amp;new).await? {</span>
+<span class="gd">-        if !repo::update_product(&amp;mut tx, id, &amp;input).await? {</span>
 <span class="gd">-            return Err(CatalogError::NotFound(id)); // dropping `tx` rolls it back</span>
-<span class="gi">+        if !repo::update_product(&amp;mut tx, id, &amp;new, last_seen).await? {</span>
+<span class="gi">+        if !repo::update_product(&amp;mut tx, id, &amp;input, last_seen).await? {</span>
 <span class="gi">+            // No row matched: the product is gone, or someone changed it.</span>
 <span class="gi">+            // Dropping `tx` rolls the transaction back either way.</span>
 <span class="gi">+            return Err(if repo::exists(&amp;mut tx, id).await? {</span>
@@ -19031,7 +19194,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+                CatalogError::NotFound(id)</span>
 <span class="gi">+            });</span>
 <span class="w"> </span>        }
-<span class="w"> </span>        repo::save_variants(&amp;mut tx, id, &amp;new.variants).await?;</code></pre></figure>
+<span class="w"> </span>        repo::save_variants(&amp;mut tx, id, &amp;input.variants).await?;</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
 <span class="gu">@@ -9,4 +9,5 @@</span>
@@ -19062,7 +19225,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>pub async fn update_product(
 <span class="w"> </span>    conn: &amp;mut PgConnection,
 <span class="w"> </span>    id: i64,
-<span class="w"> </span>    new: &amp;NewProduct,
+<span class="w"> </span>    input: &amp;ProductInput,
 <span class="gi">+    last_seen: Option&lt;DateTime&lt;Utc&gt;&gt;,</span>
 <span class="w"> </span>) -&gt; Result&lt;bool, CatalogError&gt; {
 <span class="w"> </span>    let updated = sqlx::query!(
@@ -19070,9 +19233,9 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gd">-         WHERE id = $1&quot;,</span>
 <span class="gi">+         WHERE id = $1 AND ($5::timestamptz IS NULL OR updated_at = $5)&quot;,</span>
 <span class="w"> </span>        id,
-<span class="w"> </span>        new.name,
-<span class="w"> </span>        new.brand,
-<span class="w"> </span>        new.description,
+<span class="w"> </span>        input.name,
+<span class="w"> </span>        input.brand,
+<span class="w"> </span>        input.description,
 <span class="gi">+        last_seen,</span>
 <span class="w"> </span>    )
 <span class="w"> </span>    .execute(&amp;mut *conn)</code></pre></figure>
@@ -19310,7 +19473,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <li>Make <code>delete</code> return the deleted product, as the in-memory version did: load it and delete it in one transaction in the service, or use <code>DELETE ... RETURNING</code> in the repository. Which is simpler here, and why does the first need a transaction?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>This solution loads and deletes in one transaction in the service, reusing <code>load_one</code> and <code>delete_product</code>. Its first statement is <code>SELECT ... FOR UPDATE</code>, which locks the product's row. The route doesn't change: it still answers 204 and ignores the product. A test in <code>service.rs</code> checks that the returned product, variants included, is the one that was created.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service.rs</span>
 <span class="gi">+++ b/src/products/service.rs</span>
-<span class="gu">@@ -72,11 +72,17 @@</span>
+<span class="gu">@@ -76,11 +76,17 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gd">-    pub async fn delete(&amp;self, id: i64) -&gt; Result&lt;(), CatalogError&gt; {</span>
@@ -19333,7 +19496,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+        Ok(product)</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -128,2 +134,32 @@</span>
+<span class="gu">@@ -132,2 +138,32 @@</span>
 <span class="w"> </span>    products.pop().ok_or(CatalogError::NotFound(id))
 <span class="w"> </span>}
 <span class="gi">+</span>
@@ -19342,24 +19505,24 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+    use std::time::Duration;</span>
 <span class="gi">+</span>
 <span class="gi">+    use super::*;</span>
-<span class="gi">+    use crate::products::entity::NewVariant;</span>
+<span class="gi">+    use crate::products::entity::VariantInput;</span>
 <span class="gi">+</span>
 <span class="gi">+    #[sqlx::test]</span>
 <span class="gi">+    async fn delete_returns_the_product_once(pool: PgPool) {</span>
 <span class="gi">+        let reviews = ReviewsClient::new(&quot;http://127.0.0.1:9&quot;, Duration::from_secs(5)).unwrap();</span>
 <span class="gi">+        let service = ProductService::new(pool, reviews);</span>
-<span class="gi">+        let new = NewProduct {</span>
+<span class="gi">+        let input = ProductInput {</span>
 <span class="gi">+            name: &quot;A&quot;.into(),</span>
 <span class="gi">+            brand: &quot;B&quot;.into(),</span>
 <span class="gi">+            description: String::new(),</span>
-<span class="gi">+            variants: vec![NewVariant {</span>
+<span class="gi">+            variants: vec![VariantInput {</span>
 <span class="gi">+                sku: &quot;A-1&quot;.into(),</span>
 <span class="gi">+                description: String::new(),</span>
 <span class="gi">+                price_cents: 1000,</span>
 <span class="gi">+            }],</span>
 <span class="gi">+            versions: Vec::new(),</span>
 <span class="gi">+        };</span>
-<span class="gi">+        let created = service.create(new).await.unwrap();</span>
+<span class="gi">+        let created = service.create(input).await.unwrap();</span>
 <span class="gi">+        let deleted = service.delete(created.id).await.unwrap();</span>
 <span class="gi">+        assert_eq!(deleted, created); // with its variants</span>
 <span class="gi">+        let again = service.delete(created.id).await;</span>
@@ -19587,7 +19750,7 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <figure class="code plain"><figcaption><span class="code-title">terminal</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>cargo<span class="w"> </span>sqlx<span class="w"> </span>migrate<span class="w"> </span>run</code></pre></figure>
 <p>Then change the code, layer by layer. A new field goes all the way through: schema, entity, repository, service rules, DTOs and mapper.</p>
 <ul>
-<li><strong>Entity.</strong> <code>VariantEntity</code> and <code>NewVariant</code> get <code>stock: i32</code>, as PostgreSQL's <code>INTEGER</code> maps to <code>i32</code>.</li>
+<li><strong>Entity.</strong> <code>VariantEntity</code> and <code>VariantInput</code> get <code>stock: i32</code>, as PostgreSQL's <code>INTEGER</code> maps to <code>i32</code>.</li>
 <li><strong>Repository.</strong> The upsert writes <code>stock</code>, and <code>load</code> reads it. Forgetting the <code>SELECT</code> isn't possible: the compiler reports the missing field where <code>VariantEntity</code> is built from the row.</li>
 <li><strong>Validation.</strong> A negative stock is a 422 with its own message, before the database's <code>CHECK</code> would turn it into a 500.</li>
 <li><strong>DTOs.</strong> <code>VariantRequest</code> gets the field with <code>#[serde(default)]</code>, so a client that doesn't know about stock yet can still create and update products. A new field in a request should be optional, for the same reason the column has a default. <code>VariantResponse</code> gets it too.</li>
@@ -19658,20 +19821,20 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <span class="gu">@@ -71,4 +75,10 @@</span>
 <span class="w"> </span>        });
 <span class="w"> </span>    }
-<span class="gi">+    if let Some(v) = new.variants.iter().find(|v| v.stock &lt; 0) {</span>
+<span class="gi">+    if let Some(v) = input.variants.iter().find(|v| v.stock &lt; 0) {</span>
 <span class="gi">+        return Err(ValidationError::NegativeStock {</span>
 <span class="gi">+            sku: v.sku.clone(),</span>
 <span class="gi">+            stock: v.stock,</span>
 <span class="gi">+        });</span>
 <span class="gi">+    }</span>
-<span class="w"> </span>    let skus = new.variants.iter().map(|v| v.sku.as_str());
+<span class="w"> </span>    let skus = input.variants.iter().map(|v| v.sku.as_str());
 <span class="w"> </span>    if let Some(sku) = find_duplicate(skus.clone()) {
 <span class="gu">@@ -108,4 +118,5 @@</span>
 <span class="w"> </span>            description: String::new(),
 <span class="w"> </span>            price_cents: 1000,
 <span class="gi">+            stock: 5,</span>
 <span class="w"> </span>        };
-<span class="w"> </span>        let version = |number, skus: &amp;[&amp;str]| NewVersion {
+<span class="w"> </span>        let version = |number, skus: &amp;[&amp;str]| VersionInput {
 <span class="gu">@@ -148,4 +159,11 @@</span>
 <span class="w"> </span>            ),
 <span class="w"> </span>            (
@@ -19700,13 +19863,13 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <span class="w"> </span>    pub image: Option&lt;ImageResponse&gt;,
 <span class="w"> </span>}</code></pre></figure><figure class="code plain project" data-diff-file="src/products/mapper.rs" data-diff-since="25"><figcaption><span class="code-title">src/products/mapper.rs (changes since step 25)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -46,4 +46,5 @@</span>
+<span class="gu">@@ -62,4 +62,5 @@</span>
 <span class="w"> </span>            description: request.description,
 <span class="w"> </span>            price_cents: request.price_cents,
 <span class="gi">+            stock: request.stock,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -92,4 +93,5 @@</span>
+<span class="gu">@@ -108,4 +109,5 @@</span>
 <span class="w"> </span>            description: variant.description,
 <span class="w"> </span>            price_cents: variant.price_cents,
 <span class="gi">+            stock: variant.stock,</span>
@@ -20007,10 +20170,10 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="gd">-        &quot;INSERT INTO products (name, brand, description) VALUES ($1, $2, $3) RETURNING id&quot;,</span>
 <span class="gi">+        &quot;INSERT INTO products (name, brand, description, discontinued)</span>
 <span class="gi">+         VALUES ($1, $2, $3, $4) RETURNING id&quot;,</span>
-<span class="w"> </span>        new.name,
-<span class="w"> </span>        new.brand,
-<span class="w"> </span>        new.description,
-<span class="gi">+        new.discontinued,</span>
+<span class="w"> </span>        input.name,
+<span class="w"> </span>        input.brand,
+<span class="w"> </span>        input.description,
+<span class="gi">+        input.discontinued,</span>
 <span class="w"> </span>    )
 <span class="w"> </span>    .fetch_one(&amp;mut *conn)
 <span class="gu">@@ -183,5 +189,6 @@</span>
@@ -20022,9 +20185,9 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="w"> </span>         WHERE id = $1&quot;,
 <span class="w"> </span>        id,
 <span class="gu">@@ -189,4 +196,5 @@</span>
-<span class="w"> </span>        new.brand,
-<span class="w"> </span>        new.description,
-<span class="gi">+        new.discontinued,</span>
+<span class="w"> </span>        input.brand,
+<span class="w"> </span>        input.description,
+<span class="gi">+        input.discontinued,</span>
 <span class="w"> </span>    )
 <span class="w"> </span>    .execute(&amp;mut *conn)</code></pre></figure>
 <p><code>$5</code> is a plain <code>bool</code>, so <code>($5 OR NOT p.discontinued)</code> is true for every row when the client asks for discontinued products, and keeps only the current ones otherwise. <code>load</code> doesn't filter, so <code>GET /products/{id}</code> still finds a discontinued product.</p>
@@ -20080,29 +20243,29 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="w"> </span>    pub brand: String,
 <span class="w"> </span>    pub description: String,
 <span class="gi">+    pub discontinued: bool,</span>
-<span class="w"> </span>    pub variants: Vec&lt;NewVariant&gt;,
-<span class="w"> </span>    pub versions: Vec&lt;NewVersion&gt;,</code></pre></figure>
+<span class="w"> </span>    pub variants: Vec&lt;VariantInput&gt;,
+<span class="w"> </span>    pub versions: Vec&lt;VersionInput&gt;,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
 <span class="gu">@@ -22,4 +22,5 @@</span>
 <span class="w"> </span>            brand: request.brand,
 <span class="w"> </span>            description: request.description,
 <span class="gi">+            discontinued: request.discontinued,</span>
-<span class="w"> </span>            variants: request.variants.into_iter().map(NewVariant::from).collect(),
-<span class="w"> </span>            versions: request.versions.into_iter().map(NewVersion::from).collect(),
-<span class="gu">@@ -34,4 +35,5 @@</span>
+<span class="w"> </span>            variants: request
+<span class="w"> </span>                .variants
+<span class="gu">@@ -42,4 +43,5 @@</span>
 <span class="w"> </span>            brand: request.brand,
 <span class="w"> </span>            description: request.description,
 <span class="gi">+            discontinued: request.discontinued,</span>
-<span class="w"> </span>            variants: request.variants.into_iter().map(NewVariant::from).collect(),
-<span class="w"> </span>            versions: request.versions.into_iter().map(NewVersion::from).collect(),
-<span class="gu">@@ -69,4 +71,5 @@</span>
+<span class="w"> </span>            variants: request
+<span class="w"> </span>                .variants
+<span class="gu">@@ -85,4 +87,5 @@</span>
 <span class="w"> </span>            brand: product.brand,
 <span class="w"> </span>            description: product.description,
 <span class="gi">+            discontinued: product.discontinued,</span>
 <span class="w"> </span>            image: product.image.as_ref().map(ImageResponse::from),
 <span class="w"> </span>            variants: product
-<span class="gu">@@ -142,4 +145,5 @@</span>
+<span class="gu">@@ -158,4 +161,5 @@</span>
 <span class="w"> </span>            brand: &quot;B&quot;.into(),
 <span class="w"> </span>            description: String::new(),
 <span class="gi">+            discontinued: false,</span>
@@ -20300,7 +20463,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>    pub price_cents: i64,
 <span class="w"> </span>    pub stock: i32, // added by migration 0002
 <span class="gu">@@ -153,5 +153,5 @@</span>
-<span class="w"> </span>pub struct NewVariant {
+<span class="w"> </span>pub struct VariantInput {
 <span class="w"> </span>    pub sku: String,
 <span class="gd">-    pub description: String,</span>
 <span class="gi">+    pub label: String,</span>
@@ -20308,14 +20471,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>    pub stock: i32,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs, release 2 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -44,5 +44,5 @@</span>
-<span class="w"> </span>        NewVariant {
+<span class="gu">@@ -60,5 +60,5 @@</span>
+<span class="w"> </span>        VariantInput {
 <span class="w"> </span>            sku: request.sku,
 <span class="gd">-            description: request.description,</span>
 <span class="gi">+            label: request.description, // the JSON keeps its name</span>
 <span class="w"> </span>            price_cents: request.price_cents,
 <span class="w"> </span>            stock: request.stock,
-<span class="gu">@@ -91,5 +91,5 @@</span>
+<span class="gu">@@ -107,5 +107,5 @@</span>
 <span class="w"> </span>            id: variant.id,
 <span class="w"> </span>            sku: variant.sku,
 <span class="gd">-            description: variant.description,</span>
@@ -20325,7 +20488,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <figure class="code plain project"><figcaption><span class="code-title">src/products/validate.rs, release 2 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/validate.rs</span>
 <span class="gi">+++ b/src/products/validate.rs</span>
 <span class="gu">@@ -116,5 +116,5 @@</span>
-<span class="w"> </span>        let variant = |sku: &amp;str| NewVariant {
+<span class="w"> </span>        let variant = |sku: &amp;str| VariantInput {
 <span class="w"> </span>            sku: sku.to_string(),
 <span class="gd">-            description: String::new(),</span>
 <span class="gi">+            label: String::new(),</span>

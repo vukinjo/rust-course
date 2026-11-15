@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::hash::Hash;
 
-use super::entity::NewProduct;
+use super::entity::ProductInput;
 
 /// A product that breaks one of the rules. Each variant says which rule,
 /// and carries the data needed to explain it.
@@ -58,37 +58,37 @@ pub fn find_duplicate<T: Eq + Hash + Copy>(items: impl IntoIterator<Item = T>) -
 }
 
 /// Checks the rules that need only the product itself.
-pub fn validate(new: &NewProduct) -> Result<(), ValidationError> {
-    if new.name.trim().is_empty() {
+pub fn validate(input: &ProductInput) -> Result<(), ValidationError> {
+    if input.name.trim().is_empty() {
         return Err(ValidationError::EmptyName);
     }
-    if new.brand.trim().is_empty() {
+    if input.brand.trim().is_empty() {
         return Err(ValidationError::EmptyBrand);
     }
-    if new.variants.iter().any(|v| v.sku.trim().is_empty()) {
+    if input.variants.iter().any(|v| v.sku.trim().is_empty()) {
         return Err(ValidationError::EmptySku);
     }
-    if let Some(v) = new.variants.iter().find(|v| v.price_cents <= 0) {
+    if let Some(v) = input.variants.iter().find(|v| v.price_cents <= 0) {
         return Err(ValidationError::PriceNotPositive {
             sku: v.sku.clone(),
             cents: v.price_cents,
         });
     }
-    if let Some(v) = new.variants.iter().find(|v| v.stock < 0) {
+    if let Some(v) = input.variants.iter().find(|v| v.stock < 0) {
         return Err(ValidationError::NegativeStock {
             sku: v.sku.clone(),
             stock: v.stock,
         });
     }
-    let skus = new.variants.iter().map(|v| v.sku.as_str());
+    let skus = input.variants.iter().map(|v| v.sku.as_str());
     if let Some(sku) = find_duplicate(skus.clone()) {
         return Err(ValidationError::DuplicateSku(sku.to_string()));
     }
     let skus: HashSet<&str> = skus.collect();
-    if let Some(v) = new.versions.iter().find(|v| v.number <= 0) {
+    if let Some(v) = input.versions.iter().find(|v| v.number <= 0) {
         return Err(ValidationError::VersionNumberNotPositive(v.number));
     }
-    for version in &new.versions {
+    for version in &input.versions {
         if let Some(sku) = version
             .variant_skus
             .iter()
@@ -100,7 +100,7 @@ pub fn validate(new: &NewProduct) -> Result<(), ValidationError> {
             });
         }
     }
-    if let Some(number) = find_duplicate(new.versions.iter().map(|v| v.number)) {
+    if let Some(number) = find_duplicate(input.versions.iter().map(|v| v.number)) {
         return Err(ValidationError::DuplicateVersion(number));
     }
     Ok(())
@@ -109,23 +109,23 @@ pub fn validate(new: &NewProduct) -> Result<(), ValidationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::products::entity::{NewVariant, NewVersion};
+    use crate::products::entity::{VariantInput, VersionInput};
 
     /// A valid product with two variants and two versions.
-    fn valid() -> NewProduct {
-        let variant = |sku: &str| NewVariant {
+    fn valid() -> ProductInput {
+        let variant = |sku: &str| VariantInput {
             sku: sku.to_string(),
             description: String::new(),
             price_cents: 1000,
             stock: 5,
         };
-        let version = |number, skus: &[&str]| NewVersion {
+        let version = |number, skus: &[&str]| VersionInput {
             number,
             notes: String::new(),
             released_on: "2026-01-01".parse().unwrap(),
             variant_skus: skus.iter().map(|s| s.to_string()).collect(),
         };
-        NewProduct {
+        ProductInput {
             name: "Shoe".to_string(),
             brand: "Brand".to_string(),
             description: String::new(),
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn each_rule_has_its_own_error() {
-        type Change = fn(&mut NewProduct);
+        type Change = fn(&mut ProductInput);
         let cases: Vec<(Change, ValidationError)> = vec![
             (|p| p.name = "  ".into(), ValidationError::EmptyName),
             (|p| p.brand.clear(), ValidationError::EmptyBrand),

@@ -1,13 +1,13 @@
 //! Conversions between the API types (`model.rs`) and the entities
-//! (`entity.rs`), as `From` implementations: requests become entity input
-//! (`NewProduct`), and entities become responses. Routes call them with
-//! `.into()` and `ProductResponse::from`.
+//! (`entity.rs`), as `From` implementations: requests become `ProductInput`,
+//! and entities become responses. Routes call them with `.into()` and
+//! `ProductResponse::from`.
 //!
 //! The conversions can't fail: a request that parsed is a complete
-//! `NewProduct`, and the service validates it. A conversion that could fail
+//! `ProductInput`, and the service validates it. A conversion that could fail
 //! would implement `TryFrom` instead.
 use super::entity::{
-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,
+    Image, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity, VersionInput,
 };
 use super::model::{
     ImageResponse, ProductCreateRequest, ProductResponse, ProductUpdateRequest, ReviewResponse,
@@ -15,33 +15,49 @@ use super::model::{
 };
 use crate::reviews::Review;
 
-impl From<ProductCreateRequest> for NewProduct {
+impl From<ProductCreateRequest> for ProductInput {
     fn from(request: ProductCreateRequest) -> Self {
-        NewProduct {
+        ProductInput {
             name: request.name,
             brand: request.brand,
             description: request.description,
-            variants: request.variants.into_iter().map(NewVariant::from).collect(),
-            versions: request.versions.into_iter().map(NewVersion::from).collect(),
+            variants: request
+                .variants
+                .into_iter()
+                .map(VariantInput::from)
+                .collect(),
+            versions: request
+                .versions
+                .into_iter()
+                .map(VersionInput::from)
+                .collect(),
         }
     }
 }
 
-impl From<ProductUpdateRequest> for NewProduct {
+impl From<ProductUpdateRequest> for ProductInput {
     fn from(request: ProductUpdateRequest) -> Self {
-        NewProduct {
+        ProductInput {
             name: request.name,
             brand: request.brand,
             description: request.description,
-            variants: request.variants.into_iter().map(NewVariant::from).collect(),
-            versions: request.versions.into_iter().map(NewVersion::from).collect(),
+            variants: request
+                .variants
+                .into_iter()
+                .map(VariantInput::from)
+                .collect(),
+            versions: request
+                .versions
+                .into_iter()
+                .map(VersionInput::from)
+                .collect(),
         }
     }
 }
 
-impl From<VariantRequest> for NewVariant {
+impl From<VariantRequest> for VariantInput {
     fn from(request: VariantRequest) -> Self {
-        NewVariant {
+        VariantInput {
             sku: request.sku,
             description: request.description,
             price_cents: request.price_cents,
@@ -50,9 +66,9 @@ impl From<VariantRequest> for NewVariant {
     }
 }
 
-impl From<VersionRequest> for NewVersion {
+impl From<VersionRequest> for VersionInput {
     fn from(request: VersionRequest) -> Self {
-        NewVersion {
+        VersionInput {
             number: request.number,
             notes: request.notes,
             released_on: request.released_on,
@@ -162,8 +178,8 @@ mod tests {
                 "versions": [{"number": 1, "releasedOn": "2026-01-31", "variantSkus": ["A-1"]}]}"#,
         )
         .unwrap();
-        let new = NewProduct::from(request);
-        assert_eq!(new.variants[0].price_cents, 999);
-        assert_eq!(new.versions[0].released_on.to_string(), "2026-01-31");
+        let input = ProductInput::from(request);
+        assert_eq!(input.variants[0].price_cents, 999);
+        assert_eq!(input.versions[0].released_on.to_string(), "2026-01-31");
     }
 }

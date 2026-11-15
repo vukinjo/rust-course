@@ -12,7 +12,7 @@ use sqlx::PgConnection;
 
 use crate::error::CatalogError;
 use crate::products::entity::{
-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,
+    Image, ProductEntity, ProductInput, VariantEntity, VariantInput, VersionEntity, VersionInput,
 };
 use crate::products::model::ProductFilter;
 
@@ -162,36 +162,36 @@ pub async fn variant_image(
 /// UNIQUE constraint, which becomes `DuplicateName`.
 pub async fn insert_product(
     conn: &mut PgConnection,
-    new: &NewProduct,
+    input: &ProductInput,
 ) -> Result<i64, CatalogError> {
     sqlx::query_scalar!(
         "INSERT INTO products (name, brand, description) VALUES ($1, $2, $3) RETURNING id",
-        new.name,
-        new.brand,
-        new.description,
+        input.name,
+        input.brand,
+        input.description,
     )
     .fetch_one(&mut *conn)
     .await
-    .map_err(|e| conflict(e, CatalogError::DuplicateName(new.name.clone())))
+    .map_err(|e| conflict(e, CatalogError::DuplicateName(input.name.clone())))
 }
 
 /// Updates the product row. False if there's no product with this id.
 pub async fn update_product(
     conn: &mut PgConnection,
     id: i64,
-    new: &NewProduct,
+    input: &ProductInput,
 ) -> Result<bool, CatalogError> {
     let updated = sqlx::query!(
         "UPDATE products SET name = $2, brand = $3, description = $4, updated_at = now()
          WHERE id = $1",
         id,
-        new.name,
-        new.brand,
-        new.description,
+        input.name,
+        input.brand,
+        input.description,
     )
     .execute(&mut *conn)
     .await
-    .map_err(|e| conflict(e, CatalogError::DuplicateName(new.name.clone())))?;
+    .map_err(|e| conflict(e, CatalogError::DuplicateName(input.name.clone())))?;
     Ok(updated.rows_affected() == 1)
 }
 
@@ -211,7 +211,7 @@ pub async fn delete_product(conn: &mut PgConnection, id: i64) -> Result<bool, Ca
 pub async fn save_variants(
     conn: &mut PgConnection,
     id: i64,
-    variants: &[NewVariant],
+    variants: &[VariantInput],
 ) -> Result<(), CatalogError> {
     let skus: Vec<String> = variants.iter().map(|v| v.sku.clone()).collect();
     sqlx::query!(
@@ -255,7 +255,7 @@ pub async fn save_variants(
 pub async fn replace_versions(
     conn: &mut PgConnection,
     id: i64,
-    versions: &[NewVersion],
+    versions: &[VersionInput],
 ) -> Result<(), CatalogError> {
     // Deleting the versions also deletes their links (ON DELETE CASCADE)
     sqlx::query!("DELETE FROM versions WHERE product_id = $1", id)

@@ -2,7 +2,7 @@
 //! service stores them. They have no serde derives: the JSON clients see is
 //! defined separately, in `model.rs`, and `mapper.rs` converts between the
 //! two. The `*Entity` types are what has been stored, with the ids the
-//! repository assigned; the `New*` types are what it takes to create or
+//! repository assigned; the `*Input` types are what it takes to create or
 //! replace a product: everything but the ids.
 
 use std::error::Error;
@@ -141,16 +141,16 @@ pub struct ProductEntity {
 
 /// A product to create, or the new state of one to replace.
 #[derive(Clone, Debug, PartialEq)]
-pub struct NewProduct {
+pub struct ProductInput {
     pub name: String,
     pub brand: String,
     pub description: String,
-    pub variants: Vec<NewVariant>,
-    pub versions: Vec<NewVersion>,
+    pub variants: Vec<VariantInput>,
+    pub versions: Vec<VersionInput>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NewVariant {
+pub struct VariantInput {
     pub sku: String,
     pub description: String,
     pub price_cents: i64,
@@ -158,7 +158,7 @@ pub struct NewVariant {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NewVersion {
+pub struct VersionInput {
     pub number: i32,
     pub notes: String,
     pub released_on: NaiveDate,

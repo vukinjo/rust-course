@@ -240,14 +240,14 @@
   <text x="707" y="566" class="m">  State(service),</text>
   <text x="707" y="580" class="m">  Json(request))</text>
   <text x="707" y="604">1  model → entity (mapper.rs)</text>
-  <text x="707" y="618" class="m">   request.into()</text>
+  <text x="707" y="618" class="m">  request.into()</text>
   <text x="707" y="638">2  call the service</text>
-  <text x="707" y="652" class="m">   service.create(new).await?</text>
+  <text x="707" y="652" class="m">  service.create(input).await?</text>
   <text x="707" y="672">3  entity → response (mapper.rs)</text>
-  <text x="707" y="686" class="m">   product.into()</text>
+  <text x="707" y="686" class="m">  product.into()</text>
   <text x="707" y="706">4  answer</text>
-  <text x="707" y="720" class="m">   Ok((201, Json(response)))</text>
-  <text x="707" y="734" class="m">   or Err(CatalogError)</text>
+  <text x="707" y="720" class="m">  Ok((201, Json(response)))</text>
+  <text x="707" y="734" class="m">  or Err(CatalogError)</text>
 
   <!-- handler <-> service -->
   <line x1="905" y1="526" x2="924" y2="526" class="lb" marker-end="url(#ab)"/>
@@ -258,7 +258,7 @@
   <text x="937" y="468" class="b">ProductService</text>
   <text x="937" y="484" class="m muted">products/service.rs</text>
   <text x="937" y="506">the use cases; knows nothing about HTTP or JSON</text>
-  <text x="937" y="522"><tspan class="m">validate(&amp;new)?</tspan>  the rules in validate.rs</text>
+  <text x="937" y="522"><tspan class="m">validate(&amp;input)?</tspan>  the rules in validate.rs</text>
   <text x="937" y="538"><tspan class="m">pool.begin()</tspan>  one transaction per write</text>
   <text x="937" y="554">passes <tspan class="m">&amp;mut tx</tspan> to each repo call (one per table)</text>
   <text x="937" y="570"><tspan class="m">tx.commit()</tspan>; an early <tspan class="m">?</tspan> drops tx, which rolls back</text>

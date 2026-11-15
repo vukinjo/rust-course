@@ -12,7 +12,7 @@ mod repo; // private: only the service can use the repository
 use sqlx::{PgConnection, PgPool};
 use tracing::info;
 
-use super::entity::{Image, NewProduct, ProductEntity};
+use super::entity::{Image, ProductEntity, ProductInput};
 use super::model::ProductFilter;
 use super::validate::validate;
 use crate::error::CatalogError;
@@ -43,12 +43,12 @@ impl ProductService {
         load_one(&mut conn, id).await
     }
 
-    pub async fn create(&self, new: NewProduct) -> Result<ProductEntity, CatalogError> {
-        validate(&new)?;
+    pub async fn create(&self, input: ProductInput) -> Result<ProductEntity, CatalogError> {
+        validate(&input)?;
         let mut tx = self.pool.begin().await?;
-        let id = repo::insert_product(&mut tx, &new).await?;
-        repo::save_variants(&mut tx, id, &new.variants).await?;
-        repo::replace_versions(&mut tx, id, &new.versions).await?;
+        let id = repo::insert_product(&mut tx, &input).await?;
+        repo::save_variants(&mut tx, id, &input.variants).await?;
+        repo::replace_versions(&mut tx, id, &input.versions).await?;
         let product = load_one(&mut tx, id).await?;
         tx.commit().await?;
         info!(id, name = %product.name, "product created");
@@ -57,14 +57,18 @@ impl ProductService {
 
     /// Replaces the product. A variant whose SKU was there before keeps its
     /// row, so its id and image; versions are rebuilt.
-    pub async fn update(&self, id: i64, new: NewProduct) -> Result<ProductEntity, CatalogError> {
-        validate(&new)?;
+    pub async fn update(
+        &self,
+        id: i64,
+        input: ProductInput,
+    ) -> Result<ProductEntity, CatalogError> {
+        validate(&input)?;
         let mut tx = self.pool.begin().await?;
-        if !repo::update_product(&mut tx, id, &new).await? {
+        if !repo::update_product(&mut tx, id, &input).await? {
             return Err(CatalogError::NotFound(id)); // dropping `tx` rolls it back
         }
-        repo::save_variants(&mut tx, id, &new.variants).await?;
-        repo::replace_versions(&mut tx, id, &new.versions).await?;
+        repo::save_variants(&mut tx, id, &input.variants).await?;
+        repo::replace_versions(&mut tx, id, &input.versions).await?;
         let product = load_one(&mut tx, id).await?;
         tx.commit().await?;
         info!(id, variants = product.variants.len(), "product updated");
