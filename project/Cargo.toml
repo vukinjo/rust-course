@@ -20,3 +20,14 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 [dev-dependencies]
 http-body-util = "0.1.5"
 tower = { version = "0.5", features = ["util"] }
+
+# A release build optimized for size: `cargo build --profile small` writes
+# target/small/shoes, about 5.6 MB instead of 15 MB for --release. The code is
+# somewhat slower than opt-level 3, which this I/O-bound service doesn't notice,
+# and crash backtraces lose their function names.
+[profile.small]
+inherits = "release"
+strip = true        # drop the symbol table and debug info
+opt-level = "z"     # optimize for size instead of speed
+lto = true          # optimize across all crates at link time
+codegen-units = 1   # one unit per crate, so the optimizer sees more at once

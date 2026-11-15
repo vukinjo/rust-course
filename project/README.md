@@ -43,6 +43,10 @@ URL; override any setting with an environment variable, for example
 `APP_DATABASE__URL=postgres://… APP_SERVER__ADDR=0.0.0.0:8080 cargo run`. `RUST_LOG` and `LOG_FORMAT=json`
 control the logs.
 
+For deployment, `cargo build --release` writes `target/release/shoes` (15 MB). `cargo build --profile small`
+writes `target/small/shoes` (5.6 MB), optimized for size; see `[profile.small]` in `Cargo.toml`. Either binary
+reads `config/` from the directory it starts in.
+
 ## Test it
 
 ```bash
