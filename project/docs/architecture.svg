@@ -1,0 +1,400 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1335" width="1280" height="1335" xml:space="preserve" role="img" aria-labelledby="title desc">
+  <title id="title">shoes: architecture</title>
+  <desc id="desc">How the shoes service is assembled at start-up in main.rs, how one request flows through the tower layers, the handler, the service and the repository, how errors become responses, and how this compares with Spring Boot.</desc>
+  <style>
+    svg {
+      --bg: #ffffff; --ink: #1f2328; --muted: #59636e; --line: #8c959f; --panel: #f6f8fa;
+      --start: #2f6fbf; --start-bg: #eaf2fc;
+      --layer: #7a4fbf; --layer-bg: #f3edfb;
+      --dom: #2e8a57; --dom-bg: #e8f5ee;
+      --ext: #a86a12; --ext-bg: #fbf1e1;
+      --err: #c4372f; --err-bg: #fcebea;
+    }
+    @media (prefers-color-scheme: dark) {
+      svg {
+        --bg: #0d1117; --ink: #e6edf3; --muted: #9198a1; --line: #6e7681; --panel: #161b22;
+        --start: #6ea8f0; --start-bg: #13233a;
+        --layer: #b394ec; --layer-bg: #241a36;
+        --dom: #5cc28a; --dom-bg: #11291c;
+        --ext: #e0a54a; --ext-bg: #2e2210;
+        --err: #f07b72; --err-bg: #36191a;
+      }
+    }
+    .bg { fill: var(--bg); }
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: var(--ink); font-size: 11px; white-space: pre; }
+    .m { font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 10.5px; }
+    .t { font-size: 22px; font-weight: 700; }
+    .h { font-size: 15px; font-weight: 700; }
+    .b { font-size: 12.5px; font-weight: 700; }
+    .mb { font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 11.5px; font-weight: 700; }
+    .muted { fill: var(--muted); }
+    .c { text-anchor: middle; }
+    .r { text-anchor: end; }
+    .red { fill: var(--err); font-weight: 700; }
+    .start { fill: var(--start-bg); stroke: var(--start); stroke-width: 1.2; }
+    .layer { fill: var(--layer-bg); stroke: var(--layer); stroke-width: 1.2; }
+    .dom { fill: var(--dom-bg); stroke: var(--dom); stroke-width: 1.2; }
+    .ext { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+    .err { fill: var(--err-bg); stroke: var(--err); stroke-width: 1.2; }
+    .plain { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+    .panel { fill: var(--panel); }
+    .badge { fill: var(--start); }
+    .badge-t { fill: var(--bg); font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .sep { stroke: var(--line); stroke-width: 0.6; opacity: 0.6; }
+    .lg { stroke: var(--line); stroke-width: 1.4; fill: none; }
+    .lb { stroke: var(--start); stroke-width: 1.6; fill: none; }
+    .lgr { stroke: var(--dom); stroke-width: 1.6; fill: none; }
+    .lr { stroke: var(--err); stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+    .fg { fill: var(--line); } .fb { fill: var(--start); } .fgr { fill: var(--dom); } .fr { fill: var(--err); }
+  </style>
+  <defs>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fg"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fb"/></marker>
+    <marker id="agr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fgr"/></marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fr"/></marker>
+  </defs>
+
+  <rect class="bg" width="1280" height="1335"/>
+
+  <!-- ============================================================ header -->
+  <text x="20" y="40" class="t">shoes: architecture</text>
+  <text x="20" y="62" class="muted">How the service is assembled at start-up (main.rs) and how one request travels through it.</text>
+  <text x="20" y="77" class="muted">axum 0.8 · tower-http · SQLx 0.9 · reqwest · tracing · PostgreSQL 18</text>
+
+  <g transform="translate(880 28)">
+    <line x1="0" y1="8" x2="34" y2="8" class="lg" marker-end="url(#ag)"/><text x="42" y="12">then (order of calls)</text>
+    <line x1="190" y1="8" x2="224" y2="8" class="lb" marker-end="url(#ab)"/><text x="232" y="12">value moved / request</text>
+    <line x1="0" y1="30" x2="34" y2="30" class="lgr" marker-end="url(#agr)"/><text x="42" y="34">result / response</text>
+    <line x1="190" y1="30" x2="224" y2="30" class="lr" marker-end="url(#ar)"/><text x="232" y="34">early answer (error)</text>
+  </g>
+
+  <!-- ============================================================ 1. start-up -->
+  <text x="20" y="100" class="h">1 · Start-up: main.rs builds each component in order and moves it into the next one</text>
+
+  <!-- data arcs above the boxes -->
+  <path d="M460 154V122H850V154" class="lb" marker-end="url(#ab)"/>
+  <text x="600" y="117" class="m c">pool.clone()  (main keeps the pool to close it)</text>
+  <path d="M640 154V142H790V154" class="lb" marker-end="url(#ab)"/>
+  <text x="715" y="137" class="m c">reviews</text>
+
+  <!-- 1 -->
+  <rect x="20" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="36" cy="172" r="10" class="badge"/><text x="36" y="176" class="badge-t">1</text>
+  <text x="52" y="177" class="mb">init_tracing()</text>
+  <text x="32" y="200">tracing-subscriber</text>
+  <text x="32" y="216">global: logs to stderr</text>
+  <text x="32" y="232"><tspan class="m">RUST_LOG</tspan> filter</text>
+  <text x="32" y="248" class="m">LOG_FORMAT=json</text>
+
+  <!-- 2 -->
+  <rect x="200" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="216" cy="172" r="10" class="badge"/><text x="216" y="176" class="badge-t">2</text>
+  <text x="232" y="177" class="mb">Settings::load()</text>
+  <text x="212" y="200" class="m">config/base.toml</text>
+  <text x="212" y="216" class="m">config/{APP_ENV}.toml</text>
+  <text x="212" y="232"><tspan class="m">APP_*</tspan> env variables</text>
+  <text x="212" y="248">→ Settings via serde</text>
+
+  <!-- 3 -->
+  <rect x="380" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="396" cy="172" r="10" class="badge"/><text x="396" y="176" class="badge-t">3</text>
+  <text x="412" y="177" class="mb">PgPool</text>
+  <text x="392" y="200" class="m">PgPoolOptions::connect</text>
+  <text x="392" y="216">→ PgPool (an Arc inside)</text>
+  <text x="392" y="232" class="m">migrate!().run(&amp;pool)</text>
+  <text x="392" y="248">applies new migrations</text>
+
+  <!-- 4 -->
+  <rect x="560" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="576" cy="172" r="10" class="badge"/><text x="576" y="176" class="badge-t">4</text>
+  <text x="592" y="177" class="mb">ReviewsClient</text>
+  <text x="572" y="200">wraps <tspan class="m">reqwest::Client</tspan></text>
+  <text x="572" y="216">base URL + timeout</text>
+  <text x="572" y="232">its own connection pool</text>
+  <text x="572" y="248">(an Arc inside)</text>
+
+  <!-- 5 -->
+  <rect x="740" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="756" cy="172" r="10" class="badge"/><text x="756" y="176" class="badge-t">5</text>
+  <text x="772" y="177" class="mb">ProductService</text>
+  <text x="752" y="200" class="m">::new(pool, reviews)</text>
+  <text x="752" y="216">owns both handles</text>
+  <text x="752" y="232" class="m">#[derive(Clone)]</text>
+  <text x="752" y="248">a clone copies two Arcs</text>
+
+  <!-- 6 -->
+  <rect x="920" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="936" cy="172" r="10" class="badge"/><text x="936" y="176" class="badge-t">6</text>
+  <text x="952" y="177" class="mb">app(products)</text>
+  <text x="932" y="200">routes → handlers</text>
+  <text x="932" y="216" class="m">.with_state(service)</text>
+  <text x="932" y="232" class="m">.route_layer(auth)</text>
+  <text x="932" y="248" class="m">.layer(TraceLayer)</text>
+
+  <!-- 7 -->
+  <rect x="1100" y="154" width="160" height="120" rx="8" class="start"/>
+  <circle cx="1116" cy="172" r="10" class="badge"/><text x="1116" y="176" class="badge-t">7</text>
+  <text x="1132" y="177" class="mb">axum::serve</text>
+  <text x="1112" y="200" class="m">TcpListener::bind</text>
+  <text x="1112" y="216">runs until a signal</text>
+  <text x="1112" y="232">(SIGINT, SIGTERM), then</text>
+  <text x="1112" y="248">drains; <tspan class="m">pool.close()</tspan></text>
+
+  <!-- order arrows -->
+  <line x1="180" y1="214" x2="199" y2="214" class="lg" marker-end="url(#ag)"/>
+  <line x1="360" y1="214" x2="379" y2="214" class="lg" marker-end="url(#ag)"/>
+  <line x1="540" y1="214" x2="559" y2="214" class="lg" marker-end="url(#ag)"/>
+  <line x1="720" y1="214" x2="739" y2="214" class="lg" marker-end="url(#ag)"/>
+  <line x1="900" y1="214" x2="919" y2="214" class="lb" marker-end="url(#ab)"/>
+  <line x1="1080" y1="214" x2="1099" y2="214" class="lb" marker-end="url(#ab)"/>
+
+  <!-- settings fan-out -->
+  <path d="M330 274V292H460V275" class="lb" marker-end="url(#ab)"/>
+  <text x="395" y="288" class="m c">settings.database</text>
+  <path d="M295 274V310H640V275" class="lb" marker-end="url(#ab)"/>
+  <text x="560" y="306" class="m c">settings.reviews</text>
+  <path d="M260 274V328H1180V275" class="lb" marker-end="url(#ab)"/>
+  <text x="900" y="324" class="m c">settings.server.addr</text>
+
+  <text x="20" y="354" class="muted">There is no container. main() calls the constructors in the order the data requires and moves each value into the next one; the order is the dependency graph.</text>
+  <text x="20" y="370" class="muted">A value that doesn't exist yet can't be passed on, so a missing dependency is a compile error, not a failure at start-up.</text>
+
+  <line x1="20" y1="388" x2="1260" y2="388" class="sep"/>
+
+  <!-- ============================================================ 2. request -->
+  <text x="20" y="412" class="h">2 · One request: through the tower layers in sequence, into the handler, down to the database, and back as a Response</text>
+  <text x="20" y="430" class="muted">Each layer wraps everything to its right. A layer can answer early (red); that Response travels back through the layers the request already passed.</text>
+
+  <!-- client -->
+  <rect x="20" y="546" width="95" height="200" rx="8" class="plain"/>
+  <text x="67.5" y="616" class="b c">HTTP client</text>
+  <text x="67.5" y="634" class="c muted">Bruno · curl</text>
+  <text x="67.5" y="660" class="m c">Authorization:</text>
+  <text x="67.5" y="674" class="m c">Bearer &lt;token&gt;</text>
+
+  <!-- bars -->
+  <g>
+    <rect x="135" y="446" width="100" height="350" rx="8" class="layer"/>
+    <text x="185" y="468" class="b c">axum::serve</text>
+    <text x="185" y="488" class="c">hyper reads the</text>
+    <text x="185" y="503" class="c">HTTP request;</text>
+    <text x="185" y="518" class="c">one Tokio task</text>
+    <text x="185" y="533" class="c">per connection</text>
+    <text x="185" y="786" class="m c muted">main.rs</text>
+
+    <rect x="245" y="446" width="100" height="350" rx="8" class="layer"/>
+    <text x="295" y="468" class="b c">TraceLayer</text>
+    <text x="295" y="488" class="c">a span per</text>
+    <text x="295" y="503" class="c">request, with</text>
+    <text x="295" y="518" class="c">method + URI,</text>
+    <text x="295" y="533" class="c">around its logs</text>
+    <text x="295" y="748" class="c">logs status</text>
+    <text x="295" y="762" class="c">+ latency</text>
+    <text x="295" y="786" class="m c muted">lib.rs</text>
+
+    <rect x="355" y="446" width="100" height="350" rx="8" class="layer"/>
+    <text x="405" y="468" class="b c">Router</text>
+    <text x="405" y="488" class="c">matches method</text>
+    <text x="405" y="503" class="c">+ path to one</text>
+    <text x="405" y="518" class="c">handler</text>
+    <text x="405" y="786" class="m c muted">routes.rs</text>
+
+    <rect x="465" y="446" width="100" height="350" rx="8" class="layer"/>
+    <text x="515" y="468" class="b c">Bearer token</text>
+    <text x="515" y="488" class="m c">from_fn</text>
+    <text x="515" y="503" class="c">middleware, as a</text>
+    <text x="515" y="518" class="m c">route_layer</text>
+    <text x="515" y="533" class="c">(routes only)</text>
+    <text x="515" y="786" class="m c muted">auth.rs</text>
+
+    <rect x="575" y="446" width="100" height="350" rx="8" class="layer"/>
+    <text x="625" y="468" class="b c">Extractors</text>
+    <text x="625" y="488" class="m c">State · Path</text>
+    <text x="625" y="503" class="m c">Query · Json</text>
+    <text x="625" y="518" class="c"><tspan class="m">Bytes</tspan> ≤ 1 MiB</text>
+    <text x="625" y="533" class="c">(body limit)</text>
+    <text x="625" y="786" class="m c muted">axum</text>
+  </g>
+
+  <!-- request and response lines -->
+  <line x1="115" y1="566" x2="694" y2="566" class="lb" marker-end="url(#ab)"/>
+  <line x1="695" y1="726" x2="116" y2="726" class="lgr" marker-end="url(#agr)"/>
+
+  <!-- early answers -->
+  <line x1="405" y1="566" x2="405" y2="724" class="lr" marker-end="url(#ar)"/>
+  <rect x="368" y="636" width="74" height="20" rx="10" class="err"/>
+  <text x="405" y="650" class="c red">404 / 405</text>
+  <line x1="515" y1="566" x2="515" y2="724" class="lr" marker-end="url(#ar)"/>
+  <rect x="490" y="636" width="50" height="20" rx="10" class="err"/>
+  <text x="515" y="650" class="c red">401</text>
+  <line x1="625" y1="566" x2="625" y2="724" class="lr" marker-end="url(#ar)"/>
+  <rect x="595" y="636" width="60" height="20" rx="10" class="err"/>
+  <text x="625" y="650" class="c red">4xx</text>
+
+  <!-- handler -->
+  <rect x="695" y="476" width="210" height="290" rx="8" class="dom"/>
+  <text x="707" y="498" class="b">Handler</text>
+  <text x="707" y="514" class="m muted">products/routes.rs</text>
+  <text x="707" y="536">one async fn per endpoint, e.g.</text>
+  <text x="707" y="552" class="m">create_product(</text>
+  <text x="707" y="566" class="m">  State(service),</text>
+  <text x="707" y="580" class="m">  Json(request))</text>
+  <text x="707" y="604">1  model → entity (mapper.rs)</text>
+  <text x="707" y="618" class="m">   request.into()</text>
+  <text x="707" y="638">2  call the service</text>
+  <text x="707" y="652" class="m">   service.create(new).await?</text>
+  <text x="707" y="672">3  entity → response (mapper.rs)</text>
+  <text x="707" y="686" class="m">   product.into()</text>
+  <text x="707" y="706">4  answer</text>
+  <text x="707" y="720" class="m">   Ok((201, Json(response)))</text>
+  <text x="707" y="734" class="m">   or Err(CatalogError)</text>
+
+  <!-- handler <-> service -->
+  <line x1="905" y1="526" x2="924" y2="526" class="lb" marker-end="url(#ab)"/>
+  <line x1="925" y1="586" x2="906" y2="586" class="lgr" marker-end="url(#agr)"/>
+
+  <!-- service -->
+  <rect x="925" y="446" width="335" height="158" rx="8" class="dom"/>
+  <text x="937" y="468" class="b">ProductService</text>
+  <text x="937" y="484" class="m muted">products/service.rs</text>
+  <text x="937" y="506">the use cases; knows nothing about HTTP or JSON</text>
+  <text x="937" y="522"><tspan class="m">validate(&amp;new)?</tspan>  the rules in validate.rs</text>
+  <text x="937" y="538"><tspan class="m">pool.begin()</tspan>  one transaction per write</text>
+  <text x="937" y="554">passes <tspan class="m">&amp;mut tx</tspan> to each repo call (one per table)</text>
+  <text x="937" y="570"><tspan class="m">tx.commit()</tspan>; an early <tspan class="m">?</tspan> drops tx, which rolls back</text>
+  <text x="937" y="586"><tspan class="m">reviews(id)</tspan> asks the ReviewsClient</text>
+
+  <!-- repo + reviews client -->
+  <line x1="1003" y1="604" x2="1003" y2="635" class="lb" marker-end="url(#ab)"/>
+  <line x1="1181" y1="604" x2="1181" y2="635" class="lb" marker-end="url(#ab)"/>
+
+  <rect x="925" y="636" width="157" height="112" rx="8" class="dom"/>
+  <text x="937" y="658" class="b">repo</text>
+  <text x="937" y="673" class="m muted">service/repo.rs</text>
+  <text x="937" y="692">private module: only</text>
+  <text x="937" y="706">the service can call it</text>
+  <text x="937" y="720"><tspan class="m">query!</tspan> checks the SQL</text>
+  <text x="937" y="734">at compile time</text>
+
+  <rect x="1102" y="636" width="158" height="112" rx="8" class="dom"/>
+  <text x="1114" y="658" class="b">ReviewsClient</text>
+  <text x="1114" y="673" class="m muted">reviews.rs</text>
+  <text x="1114" y="692" class="m">GET /comments</text>
+  <text x="1114" y="706" class="m">  ?postId={id}</text>
+  <text x="1114" y="720">timeout from settings</text>
+  <text x="1114" y="734">Comment → Review</text>
+
+  <!-- externals -->
+  <line x1="1003" y1="748" x2="1003" y2="777" class="lb" marker-end="url(#ab)"/>
+  <line x1="1181" y1="748" x2="1181" y2="777" class="lb" marker-end="url(#ab)"/>
+
+  <path d="M925 788V850A78.5 10 0 0 0 1082 850V788" class="ext"/>
+  <ellipse cx="1003.5" cy="788" rx="78.5" ry="10" class="ext"/>
+  <text x="1003.5" y="816" class="b c">PostgreSQL 18</text>
+  <text x="1003.5" y="832" class="c">products · variants ·</text>
+  <text x="1003.5" y="846" class="c">versions · version_variants</text>
+
+  <rect x="1102" y="778" width="158" height="80" rx="18" class="ext"/>
+  <text x="1181" y="802" class="b c">jsonplaceholder</text>
+  <text x="1181" y="818" class="c">.typicode.com</text>
+  <text x="1181" y="834" class="c">external, over HTTPS</text>
+  <text x="1181" y="848" class="c muted">failure → 502</text>
+
+  <line x1="20" y1="878" x2="1260" y2="878" class="sep"/>
+
+  <!-- ============================================================ 3. errors -->
+  <text x="20" y="905" class="h">3 · Errors are values: each call returns a Result, ? converts with From, and IntoResponse turns the error into a status</text>
+
+  <rect x="20" y="925" width="230" height="40" rx="6" class="err"/>
+  <text x="32" y="942" class="mb">ValidationError</text>
+  <text x="32" y="957" class="muted">validate.rs: a rule is broken</text>
+  <rect x="20" y="975" width="230" height="40" rx="6" class="err"/>
+  <text x="32" y="992" class="mb">sqlx::Error</text>
+  <text x="32" y="1007" class="muted">repo: query, connection, unique key</text>
+  <rect x="20" y="1025" width="230" height="40" rx="6" class="err"/>
+  <text x="32" y="1042" class="mb">reqwest::Error</text>
+  <text x="32" y="1057" class="muted">ReviewsClient: timeout, 5xx, bad JSON</text>
+
+  <text x="285" y="936" class="m c">? + From</text>
+  <line x1="250" y1="945" x2="319" y2="945" class="lr" marker-end="url(#ar)"/>
+  <line x1="250" y1="995" x2="319" y2="995" class="lr" marker-end="url(#ar)"/>
+  <line x1="250" y1="1045" x2="319" y2="1045" class="lr" marker-end="url(#ar)"/>
+
+  <rect x="320" y="925" width="220" height="140" rx="8" class="err"/>
+  <text x="332" y="948" class="mb">CatalogError</text>
+  <text x="332" y="964" class="m muted">error.rs</text>
+  <text x="332" y="986">one enum variant per failure</text>
+  <text x="332" y="1002">the service adds its own:</text>
+  <text x="332" y="1018" class="m">NotFound, Duplicate*, NoImage</text>
+  <text x="332" y="1038"><tspan class="m">source()</tspan> keeps the chain of</text>
+  <text x="332" y="1052">causes for the log</text>
+
+  <text x="590" y="988" class="m c">IntoResponse</text>
+  <line x1="540" y1="995" x2="639" y2="995" class="lr" marker-end="url(#ar)"/>
+
+  <rect x="640" y="925" width="290" height="140" rx="8" class="plain"/>
+  <g class="m">
+    <text x="652" y="947">Invalid</text><text x="918" y="947" class="r red">422</text>
+    <text x="652" y="969">NotFound · VariantNotFound · NoImage</text><text x="918" y="969" class="r red">404</text>
+    <text x="652" y="991">DuplicateName · DuplicateSku</text><text x="918" y="991" class="r red">409</text>
+    <text x="652" y="1013">NotAnImage</text><text x="918" y="1013" class="r red">415</text>
+    <text x="652" y="1035">Reviews</text><text x="918" y="1035" class="r red">502</text>
+    <text x="652" y="1057">Database</text><text x="918" y="1057" class="r red">500</text>
+  </g>
+  <line x1="652" y1="954" x2="918" y2="954" class="sep"/>
+  <line x1="652" y1="976" x2="918" y2="976" class="sep"/>
+  <line x1="652" y1="998" x2="918" y2="998" class="sep"/>
+  <line x1="652" y1="1020" x2="918" y2="1020" class="sep"/>
+  <line x1="652" y1="1042" x2="918" y2="1042" class="sep"/>
+
+  <rect x="960" y="925" width="300" height="140" rx="8" class="plain"/>
+  <text x="972" y="947" class="b">What leaves the service</text>
+  <text x="972" y="967">body: <tspan class="m">{"error": "&lt;message&gt;"}</tspan></text>
+  <text x="972" y="983">5xx: <tspan class="m">error!</tspan> logs the whole chain of causes;</text>
+  <text x="972" y="999">the client only reads "the database failed"</text>
+  <text x="972" y="1015">4xx: <tspan class="m">debug!</tspan>; the message includes the cause</text>
+  <text x="972" y="1035"><tspan class="m">AuthError</tspan> (auth.rs): 401 with</text>
+  <text x="972" y="1051"><tspan class="m">WWW-Authenticate: Bearer</tspan>, same body</text>
+
+  <line x1="20" y1="1085" x2="1260" y2="1085" class="sep"/>
+
+  <!-- ============================================================ 4. spring -->
+  <text x="20" y="1110" class="h">4 · Compared with Spring Boot</text>
+
+  <rect x="20" y="1122" width="1240" height="22" class="panel"/>
+  <text x="30" y="1137" class="b">Aspect</text>
+  <text x="200" y="1137" class="b">Spring Boot</text>
+  <text x="720" y="1137" class="b">This service (axum)</text>
+
+  <rect x="20" y="1168" width="1240" height="24" class="panel"/>
+  <rect x="20" y="1216" width="1240" height="24" class="panel"/>
+  <rect x="20" y="1264" width="1240" height="24" class="panel"/>
+
+  <text x="30" y="1160" class="b">Wiring</text>
+  <text x="200" y="1160">the container scans @Component / @Service and builds the graph at run time</text>
+  <text x="720" y="1160">main() calls the constructors in order and moves each value into the next</text>
+
+  <text x="30" y="1184" class="b">Missing dependency</text>
+  <text x="200" y="1184">start-up fails with NoSuchBeanDefinitionException</text>
+  <text x="720" y="1184">compile error: the value doesn't exist at that point of main()</text>
+
+  <text x="30" y="1208" class="b">Sharing</text>
+  <text x="200" y="1208">one singleton bean, injected by reference</text>
+  <text x="720" y="1208">ProductService is cloned per request; a clone copies two Arcs, so every request shares one pool</text>
+
+  <text x="30" y="1232" class="b">Getting dependencies</text>
+  <text x="200" y="1232">@Autowired constructor or field</text>
+  <text x="720" y="1232"><tspan class="m">State&lt;ProductService&gt;</tspan> extractor, filled from <tspan class="m">Router::with_state</tspan></text>
+
+  <text x="30" y="1256" class="b">Filters</text>
+  <text x="200" y="1256">servlet filter chain, Spring Security</text>
+  <text x="720" y="1256">tower layers: <tspan class="m">TraceLayer</tspan>, <tspan class="m">from_fn(require_bearer_token)</tspan></text>
+
+  <text x="30" y="1280" class="b">Transactions</text>
+  <text x="200" y="1280">@Transactional, applied by a proxy</text>
+  <text x="720" y="1280">explicit <tspan class="m">pool.begin()</tspan> … <tspan class="m">tx.commit()</tspan>; dropping the transaction rolls it back</text>
+
+  <text x="30" y="1304" class="b">Repository</text>
+  <text x="200" y="1304">JpaRepository interface, implemented at run time</text>
+  <text x="720" y="1304">private <tspan class="m">repo</tspan> module; <tspan class="m">query!</tspan> checks the SQL against the schema at compile time</text>
+</svg>

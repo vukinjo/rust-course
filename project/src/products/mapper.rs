@@ -6,7 +6,9 @@
 //! The conversions can't fail: a request that parsed is a complete
 //! `NewProduct`, and the service validates it. A conversion that could fail
 //! would implement `TryFrom` instead.
-use super::entity::{Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version};
+use super::entity::{
+    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,
+};
 use super::model::{
     ImageResponse, ProductCreateRequest, ProductResponse, ProductUpdateRequest, ReviewResponse,
     VariantRequest, VariantResponse, VersionRequest, VersionResponse,
@@ -59,8 +61,8 @@ impl From<VersionRequest> for NewVersion {
     }
 }
 
-impl From<Product> for ProductResponse {
-    fn from(product: Product) -> Self {
+impl From<ProductEntity> for ProductResponse {
+    fn from(product: ProductEntity) -> Self {
         ProductResponse {
             id: product.id,
             name: product.name,
@@ -83,8 +85,8 @@ impl From<Product> for ProductResponse {
     }
 }
 
-impl From<Variant> for VariantResponse {
-    fn from(variant: Variant) -> Self {
+impl From<VariantEntity> for VariantResponse {
+    fn from(variant: VariantEntity) -> Self {
         VariantResponse {
             id: variant.id,
             sku: variant.sku,
@@ -96,8 +98,8 @@ impl From<Variant> for VariantResponse {
     }
 }
 
-impl From<Version> for VersionResponse {
-    fn from(version: Version) -> Self {
+impl From<VersionEntity> for VersionResponse {
+    fn from(version: VersionEntity) -> Self {
         VersionResponse {
             id: version.id,
             number: version.number,
@@ -134,7 +136,7 @@ mod tests {
 
     #[test]
     fn a_response_describes_images_without_their_bytes() {
-        let product = Product {
+        let product = ProductEntity {
             id: 1,
             name: "A".into(),
             brand: "B".into(),

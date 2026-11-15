@@ -1,8 +1,9 @@
 //! The entities: products, their variants and versions, and images, as the
 //! service stores them. They have no serde derives: the JSON clients see is
 //! defined separately, in `model.rs`, and `mapper.rs` converts between the
-//! two. The `New*` types are what it takes to create or replace a product:
-//! everything but the ids.
+//! two. The `*Entity` types are what has been stored, with the ids the
+//! repository assigned; the `New*` types are what it takes to create or
+//! replace a product: everything but the ids.
 
 use std::error::Error;
 use std::fmt;
@@ -105,7 +106,7 @@ impl Image {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Variant {
+pub struct VariantEntity {
     pub id: i64,
     pub sku: String,
     pub description: String, // colour, print, size: anything that varies
@@ -117,7 +118,7 @@ pub struct Variant {
 /// A release of the model. It offers some of the product's variants,
 /// and a variant can be offered by several releases: many-to-many.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Version {
+pub struct VersionEntity {
     pub id: i64,
     pub number: i32,
     pub notes: String,
@@ -126,15 +127,15 @@ pub struct Version {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Product {
+pub struct ProductEntity {
     pub id: i64,
     pub name: String,
     pub brand: String,
     pub description: String,
     pub image: Option<Image>,
-    pub variants: Vec<Variant>,    // one-to-many
-    pub versions: Vec<Version>,    // one-to-many
-    pub created_at: DateTime<Utc>, // set by PostgreSQL
+    pub variants: Vec<VariantEntity>, // one-to-many
+    pub versions: Vec<VersionEntity>, // one-to-many
+    pub created_at: DateTime<Utc>,    // set by PostgreSQL
     pub updated_at: DateTime<Utc>,
 }
 

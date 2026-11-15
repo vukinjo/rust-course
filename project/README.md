@@ -17,7 +17,11 @@ tests/                 API tests (#[sqlx::test]), authentication tests, reviews 
 .sqlx/                 saved query metadata, so it builds without a database (SQLX_OFFLINE=true)
 assets/                sample files for image uploads (two PNGs and a text file that is not an image)
 integration-tests/     Bruno collection: integration tests for the running service
+docs/architecture.svg  diagram: start-up wiring, request flow, errors, comparison with Spring Boot
 ```
+
+The diagram in [docs/architecture.svg](docs/architecture.svg) shows how `main.rs` builds each component and how a
+request travels through the layers, the handler, the service and the repository.
 
 ## Run it
 
@@ -87,9 +91,10 @@ With the service running:
 - **Command line:**
 
   ```bash
-  npm install -g @usebruno/cli
-  cd integration-tests && bru run -r --env local
+  cd integration-tests && bunx @usebruno/cli run -r --env local
   ```
+
+  `bunx` downloads the CLI on first use and needs no global install.
 
 `environments/local.bru` points at `http://127.0.0.1:3000` and sets `token` to `test-token`; add another
 environment file for another address, or override a variable with `--env-var baseUrl=http://…`.

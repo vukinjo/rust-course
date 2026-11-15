@@ -12809,7 +12809,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
   products/
     mod.rs           what the feature exports
     model.rs         the API types (DTOs): ProductCreateRequest, ProductUpdateRequest, ProductResponse, …
-    entity.rs        the stored types: Product, Variant, Version, Image, NewProduct, …
+    entity.rs        the stored types: ProductEntity, VariantEntity, VersionEntity, Image, NewProduct, …
     mapper.rs        conversions between DTOs and entities
     validate.rs      the rules a product must follow (step 9)
     routes.rs        HTTP: the router and the handlers
@@ -12832,12 +12832,13 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>This is the layered, package-by-feature structure of a typical Spring Boot service: <code>routes</code> ≈ a controller or router, <code>service</code> ≈ a <code>@Service</code>, <code>repo</code> ≈ a repository, <code>model</code> ≈ request and response DTOs, <code>entity</code> ≈ JPA entities, <code>mapper</code> ≈ a MapStruct mapper or hand-written extension functions. What differs is the wiring: <code>main</code> constructs the service and hands it to the router. There's no container, so there are no interfaces with a single implementation, and the repository is a struct, not an interface. (A trait would come in only with a second implementation, for example for tests.) Transactions are explicit too, as Chapter 25 shows.</p></aside>
 
 <h3 id="axum-service-entities-and-dtos">Entities and DTOs</h3>
-<p><code>entity.rs</code> is step 21's <code>model.rs</code>, moved and trimmed. The serde derives and the hand-written <code>Serialize for Image</code> are gone, because entities are never serialized. The product card's <code>Display</code> implementations and their helpers (<code>variants_of</code>, <code>price_range</code>, <code>format_price</code>) are gone too: the service shows products as JSON, so nothing calls them any more. <code>NewProduct</code> and its parts stay: they're what it takes to create or replace a product, without the ids the repository assigns.</p>
+<p><code>entity.rs</code> is step 21's <code>model.rs</code>, moved and trimmed. The serde derives and the hand-written <code>Serialize for Image</code> are gone, because entities are never serialized. The product card's <code>Display</code> implementations and their helpers (<code>variants_of</code>, <code>price_range</code>, <code>format_price</code>) are gone too: the service shows products as JSON, so nothing calls them any more. The stored types get an <code>Entity</code> suffix: <code>Product</code>, <code>Variant</code> and <code>Version</code> become <code>ProductEntity</code>, <code>VariantEntity</code> and <code>VersionEntity</code>. The suffix marks what has been stored, with the ids the repository assigned, and tells them apart from the DTOs in <code>model.rs</code> at a glance. <code>NewProduct</code> and its parts keep their names: they're what it takes to create or replace a product, without those ids.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs (was src/model.rs)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! The entities: products, their variants and versions, and images, as the</span>
 <span class="sd">//! service stores them. They have no serde derives: the JSON clients see is</span>
 <span class="sd">//! defined separately, in `model.rs`, and `mapper.rs` converts between the</span>
-<span class="sd">//! two. The `New*` types are what it takes to create or replace a product:</span>
-<span class="sd">//! everything but the ids.</span>
+<span class="sd">//! two. The `*Entity` types are what has been stored, with the ids the</span>
+<span class="sd">//! repository assigned; the `New*` types are what it takes to create or</span>
+<span class="sd">//! replace a product: everything but the ids.</span>
 
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">Error</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">fmt</span><span class="p">;</span>
@@ -12940,7 +12941,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="p">}</span>
 
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Variant</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VariantEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span><span class="w"> </span><span class="c1">// colour, print, size: anything that varies</span>
@@ -12951,7 +12952,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="sd">/// A release of the model. It offers some of the product&#39;s variants,</span>
 <span class="sd">/// and a variant can be offered by several releases: many-to-many.</span>
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Version</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VersionEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
@@ -12960,14 +12961,14 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="p">}</span>
 
 <span class="cp">#[derive(Clone, Debug, PartialEq)]</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Product</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ProductEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">image</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Image</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Variant</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// one-to-many</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Version</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// one-to-many</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VariantEntity</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// one-to-many</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VersionEntity</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// one-to-many</span>
 <span class="p">}</span>
 
 <span class="sd">/// A product to create, or the new state of one to replace.</span>
@@ -12995,15 +12996,15 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variant_skus</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="n">Product</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="n">ProductEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="sd">/// `&amp;self` is the only reference that could be returned, so the</span>
 <span class="w">    </span><span class="sd">/// lifetimes are elided (Chapter 6&#39;s free function needed `&#39;a`).</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">find_variant</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Variant</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">find_variant</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">VariantEntity</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">variants</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">find</span><span class="p">(</span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">sku</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">sku</span><span class="p">)</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="sd">/// Only the repository may change a variant, so this is visible inside the crate only.</span>
-<span class="w">    </span><span class="k">pub</span><span class="p">(</span><span class="k">crate</span><span class="p">)</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">find_variant_mut</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">Variant</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="p">(</span><span class="k">crate</span><span class="p">)</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">find_variant_mut</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">VariantEntity</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">variants</span><span class="p">.</span><span class="n">iter_mut</span><span class="p">().</span><span class="n">find</span><span class="p">(</span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">sku</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">sku</span><span class="p">)</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
@@ -13198,7 +13199,9 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="sd">//! The conversions can&#39;t fail: a request that parsed is a complete</span>
 <span class="sd">//! `NewProduct`, and the service validates it. A conversion that could fail</span>
 <span class="sd">//! would implement `TryFrom` instead.</span>
-<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">Variant</span><span class="p">,</span><span class="w"> </span><span class="n">Version</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span>
+<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span>
+<span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::{</span>
 <span class="w">    </span><span class="n">ImageResponse</span><span class="p">,</span><span class="w"> </span><span class="n">ProductCreateRequest</span><span class="p">,</span><span class="w"> </span><span class="n">ProductResponse</span><span class="p">,</span><span class="w"> </span><span class="n">ProductUpdateRequest</span><span class="p">,</span><span class="w"> </span><span class="n">VariantRequest</span><span class="p">,</span>
 <span class="w">    </span><span class="n">VariantResponse</span><span class="p">,</span><span class="w"> </span><span class="n">VersionRequest</span><span class="p">,</span><span class="w"> </span><span class="n">VersionResponse</span><span class="p">,</span>
@@ -13249,8 +13252,8 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">Product</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ProductResponse</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">product</span><span class="p">:</span><span class="w"> </span><span class="nc">Product</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">ProductResponse</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">product</span><span class="p">:</span><span class="w"> </span><span class="nc">ProductEntity</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">ProductResponse</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">product</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
 <span class="w">            </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">product</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
@@ -13271,8 +13274,8 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">Variant</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VariantResponse</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">variant</span><span class="p">:</span><span class="w"> </span><span class="nc">Variant</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VariantEntity</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VariantResponse</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">variant</span><span class="p">:</span><span class="w"> </span><span class="nc">VariantEntity</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">VariantResponse</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">variant</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
 <span class="w">            </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nc">variant</span><span class="p">.</span><span class="n">sku</span><span class="p">,</span>
@@ -13283,8 +13286,8 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">Version</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VersionResponse</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">Version</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
+<span class="k">impl</span><span class="w"> </span><span class="nb">From</span><span class="o">&lt;</span><span class="n">VersionEntity</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">VersionResponse</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">from</span><span class="p">(</span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">VersionEntity</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">VersionResponse</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">version</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
 <span class="w">            </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="nc">version</span><span class="p">.</span><span class="n">number</span><span class="p">,</span>
@@ -13311,7 +13314,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 
 <span class="w">    </span><span class="cp">#[test]</span>
 <span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">a_response_describes_images_without_their_bytes</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Product</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProductEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">            </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="p">.</span><span class="n">into</span><span class="p">(),</span>
 <span class="w">            </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">.</span><span class="n">into</span><span class="p">(),</span>
@@ -13359,7 +13362,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gi">+    use crate::products::entity::{NewVariant, NewVersion};</span>
 <span class="w"> </span>
 <span class="w"> </span>    /// A valid product with two variants and two versions.</code></pre></figure></div></details>
-<p>The repository is step 21's <code>Catalog</code>, moved from <code>store.rs</code>. It keeps doing what a database's constraints will do in Chapter 25: hand out ids and keep names and SKUs unique. Two things leave it. Validation moves up to the service, which decides what a valid product is; the repository only stores. And <code>ProductFilter::matches</code> becomes a private function here, because filtering is how this storage answers a query, the in-memory version of a <code>WHERE</code> clause. The <code>SharedCatalog</code> alias goes: the service holds the <code>Arc&lt;Mutex&lt;Catalog&gt;&gt;</code> now.</p>
+<p>The repository is step 21's <code>Catalog</code>, moved from <code>store.rs</code>. It keeps doing what a database's constraints will do in Chapter 25: hand out ids and keep names and SKUs unique. Two things leave it. Validation moves up to the service, which decides what a valid product is; the repository only stores. And <code>ProductFilter::matches</code> becomes a private function here, because filtering is how this storage answers a query, the in-memory version of a <code>WHERE</code> clause. The <code>SharedCatalog</code> alias goes: the service holds the <code>Arc&lt;Mutex&lt;Catalog&gt;&gt;</code> now. Most of the diff is the entities' new names.</p>
 <details class="changes"><summary><span class="changes-title">Changes since step 21</span><span class="changes-count">1 file</span><span class="changes-files"><code>src/products/service/repo.rs (moved)</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/service/repo.rs (moved)" data-diff-since="21"><figcaption><span class="code-title">src/products/service/repo.rs (moved from src/store.rs; changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/store.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
 <span class="gu">@@ -1,13 +1,17 @@</span>
@@ -13380,12 +13383,19 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-use crate::model::{</span>
 <span class="gd">-    Image, NewProduct, NewVariant, NewVersion, Product, ProductFilter, Variant, Version,</span>
 <span class="gi">+use crate::products::entity::{</span>
-<span class="gi">+    Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version,</span>
+<span class="gi">+    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
 <span class="w"> </span>};
 <span class="gd">-use crate::validate::validate;</span>
 <span class="gi">+use crate::products::model::ProductFilter;</span>
 <span class="w"> </span>
 <span class="w"> </span>/// Products by id. A BTreeMap keeps its keys sorted, so listing returns
+<span class="gu">@@ -16,5 +20,5 @@</span>
+<span class="w"> </span>/// will in PostgreSQL.
+<span class="w"> </span>pub struct Catalog {
+<span class="gd">-    products: BTreeMap&lt;i64, Product&gt;,</span>
+<span class="gi">+    products: BTreeMap&lt;i64, ProductEntity&gt;,</span>
+<span class="w"> </span>    next_product_id: i64,
+<span class="w"> </span>    next_variant_id: i64,
 <span class="gu">@@ -22,10 +26,4 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
@@ -13397,33 +13407,89 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-</span>
 <span class="w"> </span>/// Returns the counter&#39;s value and advances it.
 <span class="w"> </span>fn next(counter: &amp;mut i64) -&gt; i64 {
-<span class="gu">@@ -45,7 +43,6 @@</span>
+<span class="gu">@@ -45,12 +43,11 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gd">-    /// Validates and stores a new product, and returns it with its ids.</span>
-<span class="gi">+    /// Stores a new product and returns it with its ids.</span>
-<span class="w"> </span>    pub fn create(&amp;mut self, new: NewProduct) -&gt; Result&lt;&amp;Product, CatalogError&gt; {
+<span class="gd">-    pub fn create(&amp;mut self, new: NewProduct) -&gt; Result&lt;&amp;Product, CatalogError&gt; {</span>
 <span class="gd">-        validate(&amp;new)?;</span>
+<span class="gi">+    /// Stores a new product and returns it with its ids.</span>
+<span class="gi">+    pub fn create(&amp;mut self, new: NewProduct) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
 <span class="w"> </span>        self.check_unique(&amp;new, None)?;
 <span class="w"> </span>        let id = next(&amp;mut self.next_product_id);
-<span class="gu">@@ -70,5 +67,4 @@</span>
+<span class="w"> </span>        let variants = self.build_variants(new.variants, Vec::new());
+<span class="w"> </span>        let versions = self.build_versions(new.versions);
+<span class="gd">-        let product = Product {</span>
+<span class="gi">+        let product = ProductEntity {</span>
+<span class="w"> </span>            id,
+<span class="w"> </span>            name: new.name,
+<span class="gu">@@ -66,9 +63,8 @@</span>
+<span class="w"> </span>    /// Replaces a product&#39;s fields, variants and versions. A variant whose
+<span class="w"> </span>    /// SKU was there before keeps its id and image; versions are rebuilt.
+<span class="gd">-    pub fn update(&amp;mut self, id: i64, new: NewProduct) -&gt; Result&lt;&amp;Product, CatalogError&gt; {</span>
+<span class="gi">+    pub fn update(&amp;mut self, id: i64, new: NewProduct) -&gt; Result&lt;&amp;ProductEntity, CatalogError&gt; {</span>
+<span class="w"> </span>        if !self.products.contains_key(&amp;id) {
 <span class="w"> </span>            return Err(CatalogError::NotFound(id));
 <span class="w"> </span>        }
 <span class="gd">-        validate(&amp;new)?;</span>
 <span class="w"> </span>        self.check_unique(&amp;new, Some(id))?;
 <span class="w"> </span>        // Take the product out of the map, change it, and put it back
-<span class="gu">@@ -95,5 +91,5 @@</span>
+<span class="gu">@@ -87,18 +83,18 @@</span>
+<span class="w"> </span>
+<span class="w"> </span>    /// Removes a product and gives it back to the caller.
+<span class="gd">-    pub fn delete(&amp;mut self, id: i64) -&gt; Result&lt;Product, CatalogError&gt; {</span>
+<span class="gi">+    pub fn delete(&amp;mut self, id: i64) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
+<span class="w"> </span>        self.products.remove(&amp;id).ok_or(CatalogError::NotFound(id))
+<span class="w"> </span>    }
+<span class="w"> </span>
+<span class="w"> </span>    /// The products that match the filter, in id order.
+<span class="gd">-    pub fn list(&amp;self, filter: &amp;ProductFilter) -&gt; Vec&lt;&amp;Product&gt; {</span>
+<span class="gi">+    pub fn list(&amp;self, filter: &amp;ProductFilter) -&gt; Vec&lt;&amp;ProductEntity&gt; {</span>
 <span class="w"> </span>        self.products
 <span class="w"> </span>            .values()
 <span class="gd">-            .filter(|p| filter.matches(p))</span>
 <span class="gi">+            .filter(|p| matches(filter, p))</span>
 <span class="w"> </span>            .collect()
 <span class="w"> </span>    }
-<span class="gu">@@ -195,9 +191,26 @@</span>
+<span class="w"> </span>
+<span class="w"> </span>    /// The product with this id, if there is one.
+<span class="gd">-    pub fn get(&amp;self, id: i64) -&gt; Option&lt;&amp;Product&gt; {</span>
+<span class="gi">+    pub fn get(&amp;self, id: i64) -&gt; Option&lt;&amp;ProductEntity&gt; {</span>
+<span class="w"> </span>        self.products.get(&amp;id)
+<span class="w"> </span>    }
+<span class="gu">@@ -155,5 +151,9 @@</span>
+<span class="w"> </span>    /// Turns new variants into stored ones. A SKU found in `old` keeps
+<span class="w"> </span>    /// that variant&#39;s id and image.
+<span class="gd">-    fn build_variants(&amp;mut self, new: Vec&lt;NewVariant&gt;, mut old: Vec&lt;Variant&gt;) -&gt; Vec&lt;Variant&gt; {</span>
+<span class="gi">+    fn build_variants(</span>
+<span class="gi">+        &amp;mut self,</span>
+<span class="gi">+        new: Vec&lt;NewVariant&gt;,</span>
+<span class="gi">+        mut old: Vec&lt;VariantEntity&gt;,</span>
+<span class="gi">+    ) -&gt; Vec&lt;VariantEntity&gt; {</span>
+<span class="w"> </span>        new.into_iter()
+<span class="w"> </span>            .map(|v| {
+<span class="gu">@@ -164,5 +164,5 @@</span>
+<span class="w"> </span>                    None =&gt; (next(&amp;mut self.next_variant_id), None),
+<span class="w"> </span>                };
+<span class="gd">-                Variant {</span>
+<span class="gi">+                VariantEntity {</span>
+<span class="w"> </span>                    id,
+<span class="w"> </span>                    sku: v.sku,
+<span class="gu">@@ -175,7 +175,7 @@</span>
+<span class="w"> </span>    }
+<span class="w"> </span>
+<span class="gd">-    fn build_versions(&amp;mut self, new: Vec&lt;NewVersion&gt;) -&gt; Vec&lt;Version&gt; {</span>
+<span class="gi">+    fn build_versions(&amp;mut self, new: Vec&lt;NewVersion&gt;) -&gt; Vec&lt;VersionEntity&gt; {</span>
+<span class="w"> </span>        new.into_iter()
+<span class="gd">-            .map(|v| Version {</span>
+<span class="gi">+            .map(|v| VersionEntity {</span>
+<span class="w"> </span>                id: next(&amp;mut self.next_version_id),
+<span class="w"> </span>                number: v.number,
+<span class="gu">@@ -195,9 +195,26 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+/// The in-memory version of the filter&#39;s `WHERE` clause.</span>
-<span class="gi">+fn matches(filter: &amp;ProductFilter, product: &amp;Product) -&gt; bool {</span>
+<span class="gi">+fn matches(filter: &amp;ProductFilter, product: &amp;ProductEntity) -&gt; bool {</span>
 <span class="gi">+    let name_ok = filter</span>
 <span class="gi">+        .name</span>
 <span class="gi">+        .as_ref()</span>
@@ -13448,7 +13514,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-    use crate::validate::ValidationError;</span>
 <span class="w"> </span>
 <span class="w"> </span>    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; NewProduct {
-<span class="gu">@@ -253,11 +266,4 @@</span>
+<span class="gu">@@ -253,11 +270,4 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>    #[test]
 <span class="gd">-    fn invalid_products_are_rejected_with_the_reason() {</span>
@@ -13460,10 +13526,9 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gd">-    #[test]</span>
 <span class="w"> </span>    fn update_keeps_ids_and_images_of_kept_skus() {
 <span class="w"> </span>        let mut catalog = Catalog::new();
-<span class="gu">@@ -317,3 +323,30 @@</span>
+<span class="gu">@@ -317,3 +327,30 @@</span>
 <span class="w"> </span>        );
 <span class="w"> </span>    }
-<span class="gd">-}</span>
 <span class="gi">+</span>
 <span class="gi">+    #[test]</span>
 <span class="gi">+    fn filters_combine_with_and() {</span>
@@ -13491,11 +13556,11 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="gi">+            &amp;product</span>
 <span class="gi">+        )); // no variant in range</span>
 <span class="gi">+    }</span>
-<span class="gi">+}</span></code></pre></figure></div></details>
+<span class="w"> </span>}</code></pre></figure></div></details>
 <p><code>ProductService</code> holds the shared catalog. Each method validates where needed, takes the lock, calls one repository method, and returns entities. A few details:</p>
 <ul>
 <li><strong>The lock</strong> is a <code>std::sync::Mutex</code>, not Tokio's async one. That's the right choice when the lock is held briefly and never across an <code>.await</code>: nothing between <code>catalog()</code> and the end of the statement awaits anything. Holding it while checking that a name is free <em>and</em> inserting the product makes those two steps atomic.</li>
-<li><strong>Copies out of the lock.</strong> The repository returns <code>&amp;Product</code>, a borrow of the locked catalog, and the result must outlive the lock. <code>Result::cloned()</code> turns <code>Result&lt;&amp;Product, _&gt;</code> into <code>Result&lt;Product, _&gt;</code>; this is what step 11's derived <code>Clone</code> was for.</li>
+<li><strong>Copies out of the lock.</strong> The repository returns <code>&amp;ProductEntity</code>, a borrow of the locked catalog, and the result must outlive the lock. <code>Result::cloned()</code> turns <code>Result&lt;&amp;ProductEntity, _&gt;</code> into <code>Result&lt;ProductEntity, _&gt;</code>; this is what step 11's derived <code>Clone</code> was for.</li>
 <li><strong>The methods are <code>async</code></strong> although nothing in them awaits yet. Their PostgreSQL versions in Chapter 25 will, and this way the routes won't change then.</li>
 <li><strong><code>#[derive(Clone, Default)]</code>.</strong> A clone shares the same catalog, which is what axum needs: it clones the state for each request. <code>ProductService::default()</code> is a service with an empty catalog.</li>
 </ul>
@@ -13509,7 +13574,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 
 <span class="k">use</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">Catalog</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">Product</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">validate</span><span class="p">::</span><span class="n">validate</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
@@ -13532,30 +13597,30 @@ cargo<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </
 <span class="w">            </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&quot;no thread panicked holding the lock&quot;</span><span class="p">)</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">filter</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductFilter</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Product</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">filter</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductFilter</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nb">Ok</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">list</span><span class="p">(</span><span class="n">filter</span><span class="p">).</span><span class="n">into_iter</span><span class="p">().</span><span class="n">cloned</span><span class="p">().</span><span class="n">collect</span><span class="p">())</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">()</span>
 <span class="w">            </span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
 <span class="w">            </span><span class="p">.</span><span class="n">cloned</span><span class="p">()</span>
 <span class="w">            </span><span class="p">.</span><span class="n">ok_or</span><span class="p">(</span><span class="n">CatalogError</span><span class="p">::</span><span class="n">NotFound</span><span class="p">(</span><span class="n">id</span><span class="p">))</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">create</span><span class="p">(</span><span class="n">new</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="sd">/// Replaces the product. A variant whose SKU was there before keeps its</span>
 <span class="w">    </span><span class="sd">/// id and image; versions are rebuilt.</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">update</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">).</span><span class="n">cloned</span><span class="p">()</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">catalog</span><span class="p">().</span><span class="n">delete</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
 <span class="w">    </span><span class="p">}</span>
 
@@ -14708,7 +14773,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>    pub brand: String,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -139,4 +139,6 @@</span>
+<span class="gu">@@ -140,4 +140,6 @@</span>
 <span class="w"> </span>#[derive(Clone, Debug, PartialEq)]
 <span class="w"> </span>pub struct NewProduct {
 <span class="gi">+    /// For a replacement: the name the stored product must still have</span>
@@ -14717,13 +14782,13 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>    pub brand: String,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -16,4 +16,5 @@</span>
+<span class="gu">@@ -18,4 +18,5 @@</span>
 <span class="w"> </span>    fn from(request: ProductCreateRequest) -&gt; Self {
 <span class="w"> </span>        NewProduct {
 <span class="gi">+            expected_name: None,</span>
 <span class="w"> </span>            name: request.name,
 <span class="w"> </span>            brand: request.brand,
-<span class="gu">@@ -28,4 +29,5 @@</span>
+<span class="gu">@@ -30,4 +31,5 @@</span>
 <span class="w"> </span>    fn from(request: ProductUpdateRequest) -&gt; Self {
 <span class="w"> </span>        NewProduct {
 <span class="gi">+            expected_name: Some(request.expected_name),</span>
@@ -14738,7 +14803,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gd">-    /// id and image; versions are rebuilt.</span>
 <span class="gi">+    /// id and image; versions are rebuilt. The name check and the update</span>
 <span class="gi">+    /// happen under one lock, so no rename can slip in between.</span>
-<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;Product, CatalogError&gt; {
+<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
 <span class="w"> </span>        validate(&amp;new)?;
 <span class="gd">-        self.catalog().update(id, new).cloned()</span>
 <span class="gi">+        let mut catalog = self.catalog();</span>
@@ -14782,7 +14847,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <p>The new field breaks every <code>NewProduct { ... }</code> literal. In the repository and in <code>validate.rs</code>, those are only the tests' helpers. The repository code itself doesn't change: the check needs the stored product, and the service already reads it with <code>get</code>. The curl request file used in the chapter needs the new field too.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -216,4 +216,5 @@</span>
+<span class="gu">@@ -220,4 +220,5 @@</span>
 <span class="w"> </span>    fn shoe(name: &amp;str, skus: &amp;[&amp;str]) -&gt; NewProduct {
 <span class="w"> </span>        NewProduct {
 <span class="gi">+            expected_name: None,</span>
@@ -15101,8 +15166,8 @@ note: future is not `Send` as this value is used across an await
 <span class="w"> </span>/// An image is described, not included: the bytes have their own URL.
 <span class="w"> </span>#[derive(Debug, PartialEq, Serialize)]</code></pre></figure><figure class="code plain project" data-diff-file="src/products/mapper.rs" data-diff-since="22"><figcaption><span class="code-title">src/products/mapper.rs (changes since step 22)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -9,7 +9,8 @@</span>
-<span class="w"> </span>use super::entity::{Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version};
+<span class="gu">@@ -11,7 +11,8 @@</span>
+<span class="w"> </span>};
 <span class="w"> </span>use super::model::{
 <span class="gd">-    ImageResponse, ProductCreateRequest, ProductResponse, ProductUpdateRequest, VariantRequest,</span>
 <span class="gd">-    VariantResponse, VersionRequest, VersionResponse,</span>
@@ -15112,7 +15177,7 @@ note: future is not `Send` as this value is used across an await
 <span class="gi">+use crate::reviews::Review;</span>
 <span class="w"> </span>
 <span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for NewProduct {
-<span class="gu">@@ -104,4 +105,14 @@</span>
+<span class="gu">@@ -106,4 +107,14 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+impl From&lt;Review&gt; for ReviewResponse {</span>
@@ -15275,7 +15340,7 @@ note: future is not `Send` as this value is used across an await
 <span class="p">}</span></code></pre></figure>
 <details class="changes"><summary><span class="changes-title">Changes since step 22</span><span class="changes-count">1 file</span><span class="changes-files"><code>src/products/service/repo.rs</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/service/repo.rs" data-diff-since="22"><figcaption><span class="code-title">src/products/service/repo.rs (changes since step 22)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -254,12 +254,9 @@</span>
+<span class="gu">@@ -258,12 +258,9 @@</span>
 <span class="w"> </span>        let mut catalog = Catalog::new();
 <span class="w"> </span>        catalog.create(shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).unwrap();
 <span class="gd">-        assert_eq!(</span>
@@ -15293,7 +15358,7 @@ note: future is not `Send` as this value is used across an await
 <span class="gi">+        assert!(matches!(result, Err(CatalogError::DuplicateSku(sku)) if sku == &quot;A1&quot;));</span>
 <span class="w"> </span>        assert_eq!(catalog.list(&amp;ProductFilter::default()).len(), 1);
 <span class="w"> </span>    }
-<span class="gu">@@ -286,12 +283,8 @@</span>
+<span class="gu">@@ -290,12 +287,8 @@</span>
 <span class="w"> </span>        catalog.create(shoe(&quot;B&quot;, &amp;[&quot;B1&quot;])).unwrap();
 <span class="w"> </span>        assert!(catalog.update(1, shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).is_ok());
 <span class="gd">-        assert_eq!(</span>
@@ -15310,14 +15375,14 @@ note: future is not `Send` as this value is used across an await
 <span class="gi">+        assert!(matches!(result, Err(CatalogError::NotFound(9)))); // 404 before 409</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="gu">@@ -301,5 +294,5 @@</span>
+<span class="gu">@@ -305,5 +298,5 @@</span>
 <span class="w"> </span>        catalog.create(shoe(&quot;A&quot;, &amp;[&quot;A1&quot;])).unwrap();
 <span class="w"> </span>        assert_eq!(catalog.delete(1).unwrap().name, &quot;A&quot;);
 <span class="gd">-        assert_eq!(catalog.delete(1).unwrap_err(), CatalogError::NotFound(1));</span>
 <span class="gi">+        assert!(matches!(catalog.delete(1), Err(CatalogError::NotFound(1))));</span>
 <span class="w"> </span>        assert!(catalog.get(1).is_none());
 <span class="w"> </span>    }
-<span class="gu">@@ -311,15 +304,8 @@</span>
+<span class="gu">@@ -315,15 +308,8 @@</span>
 <span class="w"> </span>        assert!(catalog.set_product_image(1, png()).is_ok());
 <span class="w"> </span>        assert_eq!(catalog.get(1).unwrap().image, Some(png()));
 <span class="gd">-        assert_eq!(</span>
@@ -16171,14 +16236,14 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; fini
 <span class="w"> </span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -12,5 +12,5 @@</span>
+<span class="gu">@@ -14,5 +14,5 @@</span>
 <span class="w"> </span>    VariantRequest, VariantResponse, VersionRequest, VersionResponse,
 <span class="w"> </span>};
 <span class="gd">-use crate::reviews::Review;</span>
 <span class="gi">+use super::service::RatedReview;</span>
 <span class="w"> </span>
 <span class="w"> </span>impl From&lt;ProductCreateRequest&gt; for NewProduct {
-<span class="gu">@@ -105,10 +105,11 @@</span>
+<span class="gu">@@ -107,10 +107,11 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gd">-impl From&lt;Review&gt; for ReviewResponse {</span>
@@ -16484,9 +16549,9 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="w"> </span>use repo::Catalog;
 <span class="gi">+use tracing::info;</span>
 <span class="w"> </span>
-<span class="w"> </span>use super::entity::{Image, NewProduct, Product};
+<span class="w"> </span>use super::entity::{Image, NewProduct, ProductEntity};
 <span class="gu">@@ -56,5 +57,7 @@</span>
-<span class="w"> </span>    pub async fn create(&amp;self, new: NewProduct) -&gt; Result&lt;Product, CatalogError&gt; {
+<span class="w"> </span>    pub async fn create(&amp;self, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
 <span class="w"> </span>        validate(&amp;new)?;
 <span class="gd">-        self.catalog().create(new).cloned()</span>
 <span class="gi">+        let product = self.catalog().create(new).cloned()?;</span>
@@ -16495,7 +16560,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gu">@@ -63,9 +66,13 @@</span>
-<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;Product, CatalogError&gt; {
+<span class="w"> </span>    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
 <span class="w"> </span>        validate(&amp;new)?;
 <span class="gd">-        self.catalog().update(id, new).cloned()</span>
 <span class="gi">+        let product = self.catalog().update(id, new).cloned()?;</span>
@@ -16503,7 +16568,7 @@ cargo<span class="w"> </span>add<span class="w"> </span>tower-http<span class="w
 <span class="gi">+        Ok(product)</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
-<span class="w"> </span>    pub async fn delete(&amp;self, id: i64) -&gt; Result&lt;Product, CatalogError&gt; {
+<span class="w"> </span>    pub async fn delete(&amp;self, id: i64) -&gt; Result&lt;ProductEntity, CatalogError&gt; {
 <span class="gd">-        self.catalog().delete(id)</span>
 <span class="gi">+        let product = self.catalog().delete(id)?;</span>
 <span class="gi">+        info!(id, name = %product.name, &quot;product deleted&quot;);</span>
@@ -17176,42 +17241,38 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <p>The timestamps reach the API in three small steps, one per layer: the entity gets the two fields (as chrono's <code>DateTime&lt;Utc&gt;</code>), the response DTO gets them too, and the mapper copies them across. JSON shows them as <code>createdAt</code> and <code>updatedAt</code>. The entity also loses <code>find_variant</code> and <code>find_variant_mut</code>, which only the in-memory repository used.</p>
 <details class="changes"><summary><span class="changes-title">Changes since step 24</span><span class="changes-count">3 files</span><span class="changes-files"><code>src/products/entity.rs</code>, <code>src/products/model.rs</code>, <code>src/products/mapper.rs</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/entity.rs" data-diff-since="24"><figcaption><span class="code-title">src/products/entity.rs (changes since step 24)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -9,5 +9,5 @@</span>
+<span class="gu">@@ -10,5 +10,5 @@</span>
 <span class="w"> </span>use std::str::FromStr;
 <span class="w"> </span>
 <span class="gd">-use chrono::NaiveDate;</span>
 <span class="gi">+use chrono::{DateTime, NaiveDate, Utc};</span>
 <span class="w"> </span>
 <span class="w"> </span>/// The image formats the service accepts.
-<span class="gu">@@ -132,6 +132,8 @@</span>
-<span class="w"> </span>    pub description: String,
-<span class="w"> </span>    pub image: Option&lt;Image&gt;,
-<span class="gd">-    pub variants: Vec&lt;Variant&gt;, // one-to-many</span>
-<span class="gd">-    pub versions: Vec&lt;Version&gt;, // one-to-many</span>
-<span class="gi">+    pub variants: Vec&lt;Variant&gt;,    // one-to-many</span>
-<span class="gi">+    pub versions: Vec&lt;Version&gt;,    // one-to-many</span>
-<span class="gi">+    pub created_at: DateTime&lt;Utc&gt;, // set by PostgreSQL</span>
+<span class="gu">@@ -135,4 +135,6 @@</span>
+<span class="w"> </span>    pub variants: Vec&lt;VariantEntity&gt;, // one-to-many
+<span class="w"> </span>    pub versions: Vec&lt;VersionEntity&gt;, // one-to-many
+<span class="gi">+    pub created_at: DateTime&lt;Utc&gt;,    // set by PostgreSQL</span>
 <span class="gi">+    pub updated_at: DateTime&lt;Utc&gt;,</span>
 <span class="w"> </span>}
 <span class="w"> </span>
-<span class="gu">@@ -159,17 +161,4 @@</span>
-<span class="w"> </span>    pub released_on: NaiveDate,
-<span class="w"> </span>    pub variant_skus: Vec&lt;String&gt;,
-<span class="gd">-}</span>
-<span class="gd">-</span>
-<span class="gd">-impl Product {</span>
+<span class="gu">@@ -162,17 +164,4 @@</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gd">-impl ProductEntity {</span>
 <span class="gd">-    /// `&amp;self` is the only reference that could be returned, so the</span>
 <span class="gd">-    /// lifetimes are elided (Chapter 6&#39;s free function needed `&#39;a`).</span>
-<span class="gd">-    pub fn find_variant(&amp;self, sku: &amp;str) -&gt; Option&lt;&amp;Variant&gt; {</span>
+<span class="gd">-    pub fn find_variant(&amp;self, sku: &amp;str) -&gt; Option&lt;&amp;VariantEntity&gt; {</span>
 <span class="gd">-        self.variants.iter().find(|v| v.sku == sku)</span>
 <span class="gd">-    }</span>
 <span class="gd">-</span>
 <span class="gd">-    /// Only the repository may change a variant, so this is visible inside the crate only.</span>
-<span class="gd">-    pub(crate) fn find_variant_mut(&amp;mut self, sku: &amp;str) -&gt; Option&lt;&amp;mut Variant&gt; {</span>
+<span class="gd">-    pub(crate) fn find_variant_mut(&amp;mut self, sku: &amp;str) -&gt; Option&lt;&amp;mut VariantEntity&gt; {</span>
 <span class="gd">-        self.variants.iter_mut().find(|v| v.sku == sku)</span>
 <span class="gd">-    }</span>
-<span class="w"> </span>}
-<span class="w"> </span></code></pre></figure><figure class="code plain project" data-diff-file="src/products/model.rs" data-diff-since="24"><figcaption><span class="code-title">src/products/model.rs (changes since step 24)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/model.rs</span>
+<span class="gd">-}</span>
+<span class="gd">-</span>
+<span class="w"> </span>#[cfg(test)]
+<span class="w"> </span>mod tests {</code></pre></figure><figure class="code plain project" data-diff-file="src/products/model.rs" data-diff-since="24"><figcaption><span class="code-title">src/products/model.rs (changes since step 24)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/model.rs</span>
 <span class="gi">+++ b/src/products/model.rs</span>
 <span class="gu">@@ -4,5 +4,5 @@</span>
 <span class="w"> </span>//! breaking clients and the other way round. `mapper.rs` converts between
@@ -17228,14 +17289,14 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w"> </span>}
 <span class="w"> </span></code></pre></figure><figure class="code plain project" data-diff-file="src/products/mapper.rs" data-diff-since="24"><figcaption><span class="code-title">src/products/mapper.rs (changes since step 24)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -77,4 +77,6 @@</span>
+<span class="gu">@@ -79,4 +79,6 @@</span>
 <span class="w"> </span>                .map(VersionResponse::from)
 <span class="w"> </span>                .collect(),
 <span class="gi">+            created_at: product.created_at,</span>
 <span class="gi">+            updated_at: product.updated_at,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -139,4 +141,6 @@</span>
+<span class="gu">@@ -141,4 +143,6 @@</span>
 <span class="w"> </span>            variants: Vec::new(),
 <span class="w"> </span>            versions: Vec::new(),
 <span class="gi">+            created_at: chrono::DateTime::UNIX_EPOCH,</span>
@@ -17261,7 +17322,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">products</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span>
-<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">Variant</span><span class="p">,</span><span class="w"> </span><span class="n">Version</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">NewVariant</span><span class="p">,</span><span class="w"> </span><span class="n">NewVersion</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VariantEntity</span><span class="p">,</span><span class="w"> </span><span class="n">VersionEntity</span><span class="p">,</span>
 <span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">products</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 
@@ -17299,7 +17360,10 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="sd">/// Fetches the products with these ids, with their variants and versions:</span>
 <span class="sd">/// four queries in all, however many products there are, and the rows are</span>
 <span class="sd">/// put together in Rust.</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span><span class="w"> </span><span class="n">ids</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">i64</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Product</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span>
+<span class="w">    </span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ids</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">i64</span><span class="p">],</span>
+<span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">products</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sqlx</span><span class="p">::</span><span class="n">query</span><span class="o">!</span><span class="p">(</span>
 <span class="w">        </span><span class="s">&quot;SELECT id, name, brand, description, image, image_type, created_at, updated_at</span>
 <span class="s">         FROM products WHERE id = ANY($1) ORDER BY id&quot;</span><span class="p">,</span>
@@ -17335,29 +17399,35 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">link</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">link_rows</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">skus</span><span class="p">.</span><span class="n">entry</span><span class="p">(</span><span class="n">link</span><span class="p">.</span><span class="n">version_id</span><span class="p">).</span><span class="n">or_default</span><span class="p">().</span><span class="n">push</span><span class="p">(</span><span class="n">link</span><span class="p">.</span><span class="n">sku</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">HashMap</span><span class="o">&lt;</span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Variant</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HashMap</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">variants</span><span class="p">:</span><span class="w"> </span><span class="nc">HashMap</span><span class="o">&lt;</span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VariantEntity</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HashMap</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
 <span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">row</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">variant_rows</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">variants</span><span class="p">.</span><span class="n">entry</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">product_id</span><span class="p">).</span><span class="n">or_default</span><span class="p">().</span><span class="n">push</span><span class="p">(</span><span class="n">Variant</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
-<span class="w">            </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">sku</span><span class="p">,</span>
-<span class="w">            </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
-<span class="w">            </span><span class="n">price_cents</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">price_cents</span><span class="p">,</span>
-<span class="w">            </span><span class="n">image</span><span class="p">:</span><span class="w"> </span><span class="nc">image</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">row</span><span class="p">.</span><span class="n">image_type</span><span class="p">),</span>
-<span class="w">        </span><span class="p">});</span>
+<span class="w">        </span><span class="n">variants</span>
+<span class="w">            </span><span class="p">.</span><span class="n">entry</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">product_id</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="n">or_default</span><span class="p">()</span>
+<span class="w">            </span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">VariantEntity</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
+<span class="w">                </span><span class="n">sku</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">sku</span><span class="p">,</span>
+<span class="w">                </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">description</span><span class="p">,</span>
+<span class="w">                </span><span class="n">price_cents</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">price_cents</span><span class="p">,</span>
+<span class="w">                </span><span class="n">image</span><span class="p">:</span><span class="w"> </span><span class="nc">image</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">row</span><span class="p">.</span><span class="n">image_type</span><span class="p">),</span>
+<span class="w">            </span><span class="p">});</span>
 <span class="w">    </span><span class="p">}</span>
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">HashMap</span><span class="o">&lt;</span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Version</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HashMap</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">versions</span><span class="p">:</span><span class="w"> </span><span class="nc">HashMap</span><span class="o">&lt;</span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">VersionEntity</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HashMap</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
 <span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">row</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">version_rows</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">versions</span><span class="p">.</span><span class="n">entry</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">product_id</span><span class="p">).</span><span class="n">or_default</span><span class="p">().</span><span class="n">push</span><span class="p">(</span><span class="n">Version</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
-<span class="w">            </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">number</span><span class="p">,</span>
-<span class="w">            </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">notes</span><span class="p">,</span>
-<span class="w">            </span><span class="n">released_on</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">released_on</span><span class="p">,</span>
-<span class="w">            </span><span class="n">variant_skus</span><span class="p">:</span><span class="w"> </span><span class="nc">skus</span><span class="p">.</span><span class="n">remove</span><span class="p">(</span><span class="o">&amp;</span><span class="n">row</span><span class="p">.</span><span class="n">id</span><span class="p">).</span><span class="n">unwrap_or_default</span><span class="p">(),</span>
-<span class="w">        </span><span class="p">});</span>
+<span class="w">        </span><span class="n">versions</span>
+<span class="w">            </span><span class="p">.</span><span class="n">entry</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">product_id</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="n">or_default</span><span class="p">()</span>
+<span class="w">            </span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">VersionEntity</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
+<span class="w">                </span><span class="n">number</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">number</span><span class="p">,</span>
+<span class="w">                </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">notes</span><span class="p">,</span>
+<span class="w">                </span><span class="n">released_on</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">released_on</span><span class="p">,</span>
+<span class="w">                </span><span class="n">variant_skus</span><span class="p">:</span><span class="w"> </span><span class="nc">skus</span><span class="p">.</span><span class="n">remove</span><span class="p">(</span><span class="o">&amp;</span><span class="n">row</span><span class="p">.</span><span class="n">id</span><span class="p">).</span><span class="n">unwrap_or_default</span><span class="p">(),</span>
+<span class="w">            </span><span class="p">});</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">    </span><span class="nb">Ok</span><span class="p">(</span><span class="n">products</span>
 <span class="w">        </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
-<span class="w">        </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">row</span><span class="o">|</span><span class="w"> </span><span class="n">Product</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">row</span><span class="o">|</span><span class="w"> </span><span class="n">ProductEntity</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">id</span><span class="p">,</span>
 <span class="w">            </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
 <span class="w">            </span><span class="n">brand</span><span class="p">:</span><span class="w"> </span><span class="nc">row</span><span class="p">.</span><span class="n">brand</span><span class="p">,</span>
@@ -17631,7 +17701,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">use</span><span class="w"> </span><span class="n">sqlx</span><span class="p">::{</span><span class="n">PgConnection</span><span class="p">,</span><span class="w"> </span><span class="n">PgPool</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">tracing</span><span class="p">::</span><span class="n">info</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">Product</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">entity</span><span class="p">::{</span><span class="n">Image</span><span class="p">,</span><span class="w"> </span><span class="n">NewProduct</span><span class="p">,</span><span class="w"> </span><span class="n">ProductEntity</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">model</span><span class="p">::</span><span class="n">ProductFilter</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">validate</span><span class="p">::</span><span class="n">validate</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">CatalogError</span><span class="p">;</span>
@@ -17651,18 +17721,18 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w">        </span><span class="n">ProductService</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">filter</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductFilter</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Product</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">filter</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProductFilter</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">acquire</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">ids</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">find_ids</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="p">,</span><span class="w"> </span><span class="n">filter</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">repo</span><span class="p">::</span><span class="n">load</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ids</span><span class="p">).</span><span class="k">await</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">acquire</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="n">load_one</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">conn</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">).</span><span class="k">await</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">begin</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">insert_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
@@ -17676,7 +17746,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="w">    </span><span class="sd">/// Replaces the product. A variant whose SKU was there before keeps its</span>
 <span class="w">    </span><span class="sd">/// row, so its id and image; versions are rebuilt.</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">,</span><span class="w"> </span><span class="n">new</span><span class="p">:</span><span class="w"> </span><span class="nc">NewProduct</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">validate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">pool</span><span class="p">.</span><span class="n">begin</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">repo</span><span class="p">::</span><span class="n">update_product</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">new</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
@@ -17742,7 +17812,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="sd">/// One product, on whatever connection the caller has: inside a write&#39;s</span>
 <span class="sd">/// transaction, it sees that transaction&#39;s uncommitted rows.</span>
-<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">load_one</span><span class="p">(</span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Product</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">load_one</span><span class="p">(</span><span class="n">conn</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">PgConnection</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="kt">i64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ProductEntity</span><span class="p">,</span><span class="w"> </span><span class="n">CatalogError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">products</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">repo</span><span class="p">::</span><span class="n">load</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="n">id</span><span class="p">]).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">    </span><span class="n">products</span><span class="p">.</span><span class="n">pop</span><span class="p">().</span><span class="n">ok_or</span><span class="p">(</span><span class="n">CatalogError</span><span class="p">::</span><span class="n">NotFound</span><span class="p">(</span><span class="n">id</span><span class="p">))</span>
 <span class="p">}</span></code></pre></figure>
@@ -18717,10 +18787,10 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 
 <h3 id="axum-postgres-practice">Practice</h3>
 <ol>
-<li>Make <code>GET /products</code> cheaper: write a query for listings that doesn't select the image columns, and use <code>octet_length(image)</code> to fill in the size. The response only needs the type and size, but the entity's <code>Image</code> always holds the bytes: which layer's types have to change?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The entity is what changes. <code>Product.image</code> and <code>Variant.image</code> become an <code>ImageInfo</code> (type and size) instead of an <code>Image</code> with its bytes. <code>Image</code> stays for uploads and downloads. <code>load</code> selects <code>octet_length(image) AS image_size</code> instead of <code>image</code>. No response from a loaded product ever needs the bytes, so <code>GET /products/{id}</code> and the responses to create and update get cheaper too, not only listings. The bytes are read only by <code>product_image</code> and <code>variant_image</code>.</p>
+<li>Make <code>GET /products</code> cheaper: write a query for listings that doesn't select the image columns, and use <code>octet_length(image)</code> to fill in the size. The response only needs the type and size, but the entity's <code>Image</code> always holds the bytes: which layer's types have to change?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The entity is what changes. <code>ProductEntity.image</code> and <code>VariantEntity.image</code> become an <code>ImageInfo</code> (type and size) instead of an <code>Image</code> with its bytes. <code>Image</code> stays for uploads and downloads. <code>load</code> selects <code>octet_length(image) AS image_size</code> instead of <code>image</code>. No response from a loaded product ever needs the bytes, so <code>GET /products/{id}</code> and the responses to create and update get cheaper too, not only listings. The bytes are read only by <code>product_image</code> and <code>variant_image</code>.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -105,4 +105,13 @@</span>
+<span class="gu">@@ -106,4 +106,13 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+/// What a product or variant says about its image: the type and the size,</span>
@@ -18733,44 +18803,48 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gi">+}</span>
 <span class="gi">+</span>
 <span class="w"> </span>#[derive(Clone, Debug, PartialEq)]
-<span class="w"> </span>pub struct Variant {
-<span class="gu">@@ -111,5 +120,5 @@</span>
+<span class="w"> </span>pub struct VariantEntity {
+<span class="gu">@@ -112,5 +121,5 @@</span>
 <span class="w"> </span>    pub description: String, // colour, print, size: anything that varies
 <span class="w"> </span>    pub price_cents: i64,
 <span class="gd">-    pub image: Option&lt;Image&gt;,</span>
 <span class="gi">+    pub image: Option&lt;ImageInfo&gt;,</span>
 <span class="w"> </span>}
 <span class="w"> </span>
-<span class="gu">@@ -131,5 +140,5 @@</span>
+<span class="gu">@@ -132,5 +141,5 @@</span>
 <span class="w"> </span>    pub brand: String,
 <span class="w"> </span>    pub description: String,
 <span class="gd">-    pub image: Option&lt;Image&gt;,</span>
 <span class="gi">+    pub image: Option&lt;ImageInfo&gt;,</span>
-<span class="w"> </span>    pub variants: Vec&lt;Variant&gt;,    // one-to-many
-<span class="w"> </span>    pub versions: Vec&lt;Version&gt;,    // one-to-many</code></pre></figure>
+<span class="w"> </span>    pub variants: Vec&lt;VariantEntity&gt;, // one-to-many
+<span class="w"> </span>    pub versions: Vec&lt;VersionEntity&gt;, // one-to-many</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -13,5 +13,5 @@</span>
+<span class="gu">@@ -13,5 +13,6 @@</span>
 <span class="w"> </span>use crate::error::CatalogError;
 <span class="w"> </span>use crate::products::entity::{
-<span class="gd">-    Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version,</span>
-<span class="gi">+    Image, ImageInfo, NewProduct, NewVariant, NewVersion, Product, Variant, Version,</span>
+<span class="gd">-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
+<span class="gi">+    Image, ImageInfo, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity,</span>
+<span class="gi">+    VersionEntity,</span>
 <span class="w"> </span>};
 <span class="w"> </span>use crate::products::model::ProductFilter;
-<span class="gu">@@ -50,8 +50,10 @@</span>
+<span class="gu">@@ -50,5 +51,6 @@</span>
 <span class="w"> </span>/// Fetches the products with these ids, with their variants and versions:
 <span class="w"> </span>/// four queries in all, however many products there are, and the rows are
 <span class="gd">-/// put together in Rust.</span>
 <span class="gi">+/// put together in Rust. The image columns aren&#39;t selected: `octet_length`</span>
 <span class="gi">+/// gives the size, which PostgreSQL knows without sending the bytes.</span>
-<span class="w"> </span>pub async fn load(conn: &amp;mut PgConnection, ids: &amp;[i64]) -&gt; Result&lt;Vec&lt;Product&gt;, CatalogError&gt; {
+<span class="w"> </span>pub async fn load(
+<span class="w"> </span>    conn: &amp;mut PgConnection,
+<span class="gu">@@ -56,5 +58,6 @@</span>
+<span class="w"> </span>) -&gt; Result&lt;Vec&lt;ProductEntity&gt;, CatalogError&gt; {
 <span class="w"> </span>    let products = sqlx::query!(
 <span class="gd">-        &quot;SELECT id, name, brand, description, image, image_type, created_at, updated_at</span>
 <span class="gi">+        &quot;SELECT id, name, brand, description, octet_length(image) AS image_size, image_type,</span>
 <span class="gi">+                created_at, updated_at</span>
 <span class="w"> </span>         FROM products WHERE id = ANY($1) ORDER BY id&quot;,
 <span class="w"> </span>        ids,
-<span class="gu">@@ -60,5 +62,6 @@</span>
+<span class="gu">@@ -63,5 +66,6 @@</span>
 <span class="w"> </span>    .await?;
 <span class="w"> </span>    let variant_rows = sqlx::query!(
 <span class="gd">-        &quot;SELECT id, product_id, sku, description, price_cents, image, image_type</span>
@@ -18778,24 +18852,23 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gi">+                octet_length(image) AS image_size, image_type</span>
 <span class="w"> </span>         FROM variants WHERE product_id = ANY($1) ORDER BY id&quot;,
 <span class="w"> </span>        ids,
-<span class="gu">@@ -94,5 +97,5 @@</span>
-<span class="w"> </span>            description: row.description,
-<span class="w"> </span>            price_cents: row.price_cents,
-<span class="gd">-            image: image(row.image, row.image_type),</span>
-<span class="gi">+            image: image_info(row.image_size, row.image_type),</span>
-<span class="w"> </span>        });
+<span class="gu">@@ -100,5 +104,5 @@</span>
+<span class="w"> </span>                description: row.description,
+<span class="w"> </span>                price_cents: row.price_cents,
+<span class="gd">-                image: image(row.image, row.image_type),</span>
+<span class="gi">+                image: image_info(row.image_size, row.image_type),</span>
+<span class="w"> </span>            });
 <span class="w"> </span>    }
-<span class="gu">@@ -114,5 +117,5 @@</span>
+<span class="gu">@@ -123,5 +127,5 @@</span>
 <span class="w"> </span>            brand: row.brand,
 <span class="w"> </span>            description: row.description,
 <span class="gd">-            image: image(row.image, row.image_type),</span>
 <span class="gi">+            image: image_info(row.image_size, row.image_type),</span>
 <span class="w"> </span>            variants: variants.remove(&amp;row.id).unwrap_or_default(),
 <span class="w"> </span>            versions: versions.remove(&amp;row.id).unwrap_or_default(),
-<span class="gu">@@ -329,4 +332,13 @@</span>
-<span class="w"> </span>    })
+<span class="gu">@@ -339,4 +343,13 @@</span>
 <span class="w"> </span>}
-<span class="gi">+</span>
+<span class="w"> </span>
 <span class="gi">+/// The same, from a size instead of the bytes. `octet_length` returns an</span>
 <span class="gi">+/// `integer`, so a size arrives as an `i32`.</span>
 <span class="gi">+fn image_info(size: Option&lt;i32&gt;, kind: Option&lt;String&gt;) -&gt; Option&lt;ImageInfo&gt; {</span>
@@ -18804,18 +18877,19 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gi">+        size: usize::try_from(size?).ok()?,</span>
 <span class="gi">+    })</span>
 <span class="gi">+}</span>
-<span class="w"> </span>
-<span class="w"> </span>/// A unique-constraint violation becomes `duplicate`; any other database</code></pre></figure>
+<span class="gi">+</span>
+<span class="w"> </span>/// A unique-constraint violation becomes `duplicate`; any other database
+<span class="w"> </span>/// error stays a database error.</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -7,5 +7,5 @@</span>
-<span class="w"> </span>//! `NewProduct`, and the service validates it. A conversion that could fail
+<span class="gu">@@ -8,5 +8,5 @@</span>
 <span class="w"> </span>//! would implement `TryFrom` instead.
-<span class="gd">-use super::entity::{Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version};</span>
-<span class="gi">+use super::entity::{ImageInfo, NewProduct, NewVariant, NewVersion, Product, Variant, Version};</span>
+<span class="w"> </span>use super::entity::{
+<span class="gd">-    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
+<span class="gi">+    ImageInfo, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,</span>
+<span class="w"> </span>};
 <span class="w"> </span>use super::model::{
-<span class="w"> </span>    ImageResponse, ProductCreateRequest, ProductResponse, ProductUpdateRequest, ReviewResponse,
-<span class="gu">@@ -118,9 +118,9 @@</span>
+<span class="gu">@@ -120,9 +120,9 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>/// Only the type and the size: the bytes stay out of the JSON.
 <span class="gd">-impl From&lt;&amp;Image&gt; for ImageResponse {</span>
@@ -18828,13 +18902,13 @@ podman<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 <span class="gi">+            size: image.size,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -130,4 +130,5 @@</span>
+<span class="gu">@@ -132,4 +132,5 @@</span>
 <span class="w"> </span>mod tests {
 <span class="w"> </span>    use super::*;
 <span class="gi">+    use crate::products::entity::ImageType;</span>
 <span class="w"> </span>
 <span class="w"> </span>    #[test]
-<span class="gu">@@ -138,5 +139,8 @@</span>
+<span class="gu">@@ -140,5 +141,8 @@</span>
 <span class="w"> </span>            brand: &quot;B&quot;.into(),
 <span class="w"> </span>            description: String::new(),
 <span class="gd">-            image: Image::from_bytes(b&quot;\x89PNG\r\n\x1a\nrest&quot;.to_vec()),</span>
@@ -18935,7 +19009,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>
 <span class="w"> </span>    /// Replaces the product. A variant whose SKU was there before keeps its
 <span class="gd">-    /// row, so its id and image; versions are rebuilt.</span>
-<span class="gd">-    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;Product, CatalogError&gt; {</span>
+<span class="gd">-    pub async fn update(&amp;self, id: i64, new: NewProduct) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
 <span class="gi">+    /// row, so its id and image; versions are rebuilt. With `last_seen`, only</span>
 <span class="gi">+    /// if the product&#39;s `updated_at` is still that value.</span>
 <span class="gi">+    pub async fn update(</span>
@@ -18943,7 +19017,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+        id: i64,</span>
 <span class="gi">+        new: NewProduct,</span>
 <span class="gi">+        last_seen: Option&lt;DateTime&lt;Utc&gt;&gt;,</span>
-<span class="gi">+    ) -&gt; Result&lt;Product, CatalogError&gt; {</span>
+<span class="gi">+    ) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
 <span class="w"> </span>        validate(&amp;new)?;
 <span class="w"> </span>        let mut tx = self.pool.begin().await?;
 <span class="gd">-        if !repo::update_product(&amp;mut tx, id, &amp;new).await? {</span>
@@ -18966,7 +19040,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+use chrono::{DateTime, Utc};</span>
 <span class="w"> </span>use sqlx::PgConnection;
 <span class="w"> </span>
-<span class="gu">@@ -123,4 +124,12 @@</span>
+<span class="gu">@@ -132,4 +133,12 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+/// Whether there is a product with this id.</span>
@@ -18979,7 +19053,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+</span>
 <span class="w"> </span>pub async fn product_image(conn: &amp;mut PgConnection, id: i64) -&gt; Result&lt;Image, CatalogError&gt; {
 <span class="w"> </span>    let row = sqlx::query!(&quot;SELECT image, image_type FROM products WHERE id = $1&quot;, id)
-<span class="gu">@@ -166,17 +175,20 @@</span>
+<span class="gu">@@ -175,17 +184,20 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gd">-/// Updates the product row. False if there&#39;s no product with this id.</span>
@@ -19139,7 +19213,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>
 <span class="gi">+    /// One page of the products that match the filter, in id order. A</span>
 <span class="gi">+    /// larger `limit` than MAX_LIMIT is reduced to it.</span>
-<span class="w"> </span>    pub async fn list(&amp;self, filter: &amp;ProductFilter) -&gt; Result&lt;Vec&lt;Product&gt;, CatalogError&gt; {
+<span class="w"> </span>    pub async fn list(&amp;self, filter: &amp;ProductFilter) -&gt; Result&lt;Vec&lt;ProductEntity&gt;, CatalogError&gt; {
 <span class="gi">+        let limit = filter.limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT);</span>
 <span class="gi">+        let offset = filter.offset.unwrap_or(0);</span>
 <span class="w"> </span>        let mut conn = self.pool.acquire().await?;
@@ -19245,7 +19319,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+    /// Deletes the product and returns it as it was. Loading and deleting</span>
 <span class="gi">+    /// are one transaction, and the row stays locked from the first</span>
 <span class="gi">+    /// statement to the commit, so no update can slip in between.</span>
-<span class="gi">+    pub async fn delete(&amp;self, id: i64) -&gt; Result&lt;Product, CatalogError&gt; {</span>
+<span class="gi">+    pub async fn delete(&amp;self, id: i64) -&gt; Result&lt;ProductEntity, CatalogError&gt; {</span>
 <span class="gi">+        let mut tx = self.pool.begin().await?;</span>
 <span class="gi">+        if !repo::lock_product(&amp;mut tx, id).await? {</span>
 <span class="w"> </span>            return Err(CatalogError::NotFound(id));
@@ -19294,7 +19368,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+}</span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -186,4 +186,14 @@</span>
+<span class="gu">@@ -195,4 +195,14 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
 <span class="gi">+/// Locks the product&#39;s row until the end of the transaction: other</span>
@@ -19321,7 +19395,7 @@ test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</code></pre></figure>
-<p><strong>Which is simpler?</strong> The transaction, here. <code>DELETE FROM products ... RETURNING *</code> returns only the deleted <code>products</code> row. The variants, versions and links go by <code>ON DELETE CASCADE</code>, and their rows aren't returned. Getting the whole product that way would take more <code>DELETE ... RETURNING</code> statements in a CTE, plus new code to assemble the rows. Loading first reuses the code that already builds a <code>Product</code>.</p><p><strong>Why a transaction?</strong> Two separate statements leave a gap. Another request could update the product between the load and the delete, and the service would return a product that isn't the one it deleted. In a transaction, the two statements form a single unit, and the lock taken by <code>FOR UPDATE</code> lasts until the commit, so a concurrent update waits until the delete is done. The lock is needed too: at PostgreSQL's default isolation level, READ COMMITTED, a plain <code>SELECT</code> in a transaction doesn't stop other writers.</p><p>Readers who changed a query must run <code>cargo sqlx prepare -- --all-targets</code> again to update <code>.sqlx/</code> for offline builds.</p></div></details></li>
+<p><strong>Which is simpler?</strong> The transaction, here. <code>DELETE FROM products ... RETURNING *</code> returns only the deleted <code>products</code> row. The variants, versions and links go by <code>ON DELETE CASCADE</code>, and their rows aren't returned. Getting the whole product that way would take more <code>DELETE ... RETURNING</code> statements in a CTE, plus new code to assemble the rows. Loading first reuses the code that already builds a <code>ProductEntity</code>.</p><p><strong>Why a transaction?</strong> Two separate statements leave a gap. Another request could update the product between the load and the delete, and the service would return a product that isn't the one it deleted. In a transaction, the two statements form a single unit, and the lock taken by <code>FOR UPDATE</code> lasts until the commit, so a concurrent update waits until the delete is done. The lock is needed too: at PostgreSQL's default isolation level, READ COMMITTED, a plain <code>SELECT</code> in a transaction doesn't stop other writers.</p><p>Readers who changed a query must run <code>cargo sqlx prepare -- --all-targets</code> again to update <code>.sqlx/</code> for offline builds.</p></div></details></li>
 <li>Add a <code>test</code> profile (<code>config/test.toml</code>) with a smaller pool and a reviews timeout of 500 ms, and a settings test for it. Then add a <code>log_format</code> setting (<code>text</code> or <code>json</code>) that replaces the <code>LOG_FORMAT</code> variable from Chapter 24. What does <code>init_tracing</code> need, given that it runs before the settings are loaded?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The test profile overrides only what differs from <code>base.toml</code>. Like production, it has no database URL: the CI job sets <code>APP_DATABASE__URL</code>. <code>log_format</code> is an enum, so <code>serde</code> rejects anything but <code>text</code> and <code>json</code> at start-up, naming the key. The base file says <code>text</code>, production says <code>json</code>, and <code>APP_LOG_FORMAT</code> overrides both, like any other key. In TOML a top-level key must come before the first <code>[table]</code> header; below <code>[server]</code> it would become <code>server.log_format</code>.</p>
 <figure class="code plain project"><figcaption><span class="code-title">config/test.toml (new)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># Integration tests of a deployed service, for example in CI: a small pool and</span>
 <span class="c1"># a short reviews timeout, so a hanging stub fails a test quickly. The CI job</span>
@@ -19513,41 +19587,41 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <figure class="code plain"><figcaption><span class="code-title">terminal</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>cargo<span class="w"> </span>sqlx<span class="w"> </span>migrate<span class="w"> </span>run</code></pre></figure>
 <p>Then change the code, layer by layer. A new field goes all the way through: schema, entity, repository, service rules, DTOs and mapper.</p>
 <ul>
-<li><strong>Entity.</strong> <code>Variant</code> and <code>NewVariant</code> get <code>stock: i32</code>, as PostgreSQL's <code>INTEGER</code> maps to <code>i32</code>.</li>
-<li><strong>Repository.</strong> The upsert writes <code>stock</code>, and <code>load</code> reads it. Forgetting the <code>SELECT</code> isn't possible: the compiler reports the missing field where <code>Variant</code> is built from the row.</li>
+<li><strong>Entity.</strong> <code>VariantEntity</code> and <code>NewVariant</code> get <code>stock: i32</code>, as PostgreSQL's <code>INTEGER</code> maps to <code>i32</code>.</li>
+<li><strong>Repository.</strong> The upsert writes <code>stock</code>, and <code>load</code> reads it. Forgetting the <code>SELECT</code> isn't possible: the compiler reports the missing field where <code>VariantEntity</code> is built from the row.</li>
 <li><strong>Validation.</strong> A negative stock is a 422 with its own message, before the database's <code>CHECK</code> would turn it into a 500.</li>
 <li><strong>DTOs.</strong> <code>VariantRequest</code> gets the field with <code>#[serde(default)]</code>, so a client that doesn't know about stock yet can still create and update products. A new field in a request should be optional, for the same reason the column has a default. <code>VariantResponse</code> gets it too.</li>
 <li><strong>Mapper.</strong> Two lines, one per direction. Because the entity and the DTOs are separate types, the compiler points at both: a struct literal that doesn't set every field doesn't compile.</li>
 </ul>
 <details class="changes"><summary><span class="changes-title">Changes since step 25</span><span class="changes-count">5 files</span><span class="changes-files"><code>src/products/entity.rs</code>, <code>src/products/service/repo.rs</code>, <code>src/products/validate.rs</code>, <code>src/products/model.rs</code>, <code>src/products/mapper.rs</code></span></summary><div class="changes-body"><figure class="code plain project" data-diff-file="src/products/entity.rs" data-diff-since="25"><figcaption><span class="code-title">src/products/entity.rs (changes since step 25)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -111,4 +111,5 @@</span>
+<span class="gu">@@ -112,4 +112,5 @@</span>
 <span class="w"> </span>    pub description: String, // colour, print, size: anything that varies
 <span class="w"> </span>    pub price_cents: i64,
 <span class="gi">+    pub stock: i32, // added by migration 0002</span>
 <span class="w"> </span>    pub image: Option&lt;Image&gt;,
 <span class="w"> </span>}
-<span class="gu">@@ -153,4 +154,5 @@</span>
+<span class="gu">@@ -154,4 +155,5 @@</span>
 <span class="w"> </span>    pub description: String,
 <span class="w"> </span>    pub price_cents: i64,
 <span class="gi">+    pub stock: i32,</span>
 <span class="w"> </span>}
 <span class="w"> </span></code></pre></figure><figure class="code plain project" data-diff-file="src/products/service/repo.rs" data-diff-since="25"><figcaption><span class="code-title">src/products/service/repo.rs (changes since step 25)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -60,5 +60,5 @@</span>
+<span class="gu">@@ -63,5 +63,5 @@</span>
 <span class="w"> </span>    .await?;
 <span class="w"> </span>    let variant_rows = sqlx::query!(
 <span class="gd">-        &quot;SELECT id, product_id, sku, description, price_cents, image, image_type</span>
 <span class="gi">+        &quot;SELECT id, product_id, sku, description, price_cents, stock, image, image_type</span>
 <span class="w"> </span>         FROM variants WHERE product_id = ANY($1) ORDER BY id&quot;,
 <span class="w"> </span>        ids,
-<span class="gu">@@ -94,4 +94,5 @@</span>
-<span class="w"> </span>            description: row.description,
-<span class="w"> </span>            price_cents: row.price_cents,
-<span class="gi">+            stock: row.stock,</span>
-<span class="w"> </span>            image: image(row.image, row.image_type),
-<span class="w"> </span>        });
-<span class="gu">@@ -219,8 +220,9 @@</span>
+<span class="gu">@@ -100,4 +100,5 @@</span>
+<span class="w"> </span>                description: row.description,
+<span class="w"> </span>                price_cents: row.price_cents,
+<span class="gi">+                stock: row.stock,</span>
+<span class="w"> </span>                image: image(row.image, row.image_type),
+<span class="w"> </span>            });
+<span class="gu">@@ -228,8 +229,9 @@</span>
 <span class="w"> </span>        // up updating, so ids can have gaps.)
 <span class="w"> </span>        let saved = sqlx::query_scalar!(
 <span class="gd">-            &quot;INSERT INTO variants (product_id, sku, description, price_cents)</span>
@@ -19560,7 +19634,7 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <span class="gi">+                    stock = EXCLUDED.stock</span>
 <span class="w"> </span>                WHERE variants.product_id = EXCLUDED.product_id
 <span class="w"> </span>             RETURNING id&quot;,
-<span class="gu">@@ -229,4 +231,5 @@</span>
+<span class="gu">@@ -238,4 +240,5 @@</span>
 <span class="w"> </span>            variant.description,
 <span class="w"> </span>            variant.price_cents,
 <span class="gi">+            variant.stock,</span>
@@ -19626,13 +19700,13 @@ error: error returned from database: column "stock" does not exist</code></pre><
 <span class="w"> </span>    pub image: Option&lt;ImageResponse&gt;,
 <span class="w"> </span>}</code></pre></figure><figure class="code plain project" data-diff-file="src/products/mapper.rs" data-diff-since="25"><figcaption><span class="code-title">src/products/mapper.rs (changes since step 25)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -44,4 +44,5 @@</span>
+<span class="gu">@@ -46,4 +46,5 @@</span>
 <span class="w"> </span>            description: request.description,
 <span class="w"> </span>            price_cents: request.price_cents,
 <span class="gi">+            stock: request.stock,</span>
 <span class="w"> </span>        }
 <span class="w"> </span>    }
-<span class="gu">@@ -90,4 +91,5 @@</span>
+<span class="gu">@@ -92,4 +93,5 @@</span>
 <span class="w"> </span>            description: variant.description,
 <span class="w"> </span>            price_cents: variant.price_cents,
 <span class="gi">+            stock: variant.stock,</span>
@@ -19913,21 +19987,21 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="gi">+        filter.include_discontinued,</span>
 <span class="w"> </span>    )
 <span class="w"> </span>    .fetch_all(&amp;mut *conn)
-<span class="gu">@@ -53,5 +55,6 @@</span>
-<span class="w"> </span>pub async fn load(conn: &amp;mut PgConnection, ids: &amp;[i64]) -&gt; Result&lt;Vec&lt;Product&gt;, CatalogError&gt; {
+<span class="gu">@@ -56,5 +58,6 @@</span>
+<span class="w"> </span>) -&gt; Result&lt;Vec&lt;ProductEntity&gt;, CatalogError&gt; {
 <span class="w"> </span>    let products = sqlx::query!(
 <span class="gd">-        &quot;SELECT id, name, brand, description, image, image_type, created_at, updated_at</span>
 <span class="gi">+        &quot;SELECT id, name, brand, description, discontinued, image, image_type,</span>
 <span class="gi">+                created_at, updated_at</span>
 <span class="w"> </span>         FROM products WHERE id = ANY($1) ORDER BY id&quot;,
 <span class="w"> </span>        ids,
-<span class="gu">@@ -115,4 +118,5 @@</span>
+<span class="gu">@@ -124,4 +127,5 @@</span>
 <span class="w"> </span>            brand: row.brand,
 <span class="w"> </span>            description: row.description,
 <span class="gi">+            discontinued: row.discontinued,</span>
 <span class="w"> </span>            image: image(row.image, row.image_type),
 <span class="w"> </span>            variants: variants.remove(&amp;row.id).unwrap_or_default(),
-<span class="gu">@@ -157,8 +161,10 @@</span>
+<span class="gu">@@ -166,8 +170,10 @@</span>
 <span class="w"> </span>) -&gt; Result&lt;i64, CatalogError&gt; {
 <span class="w"> </span>    sqlx::query_scalar!(
 <span class="gd">-        &quot;INSERT INTO products (name, brand, description) VALUES ($1, $2, $3) RETURNING id&quot;,</span>
@@ -19939,7 +20013,7 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="gi">+        new.discontinued,</span>
 <span class="w"> </span>    )
 <span class="w"> </span>    .fetch_one(&amp;mut *conn)
-<span class="gu">@@ -174,5 +180,6 @@</span>
+<span class="gu">@@ -183,5 +189,6 @@</span>
 <span class="w"> </span>) -&gt; Result&lt;bool, CatalogError&gt; {
 <span class="w"> </span>    let updated = sqlx::query!(
 <span class="gd">-        &quot;UPDATE products SET name = $2, brand = $3, description = $4, updated_at = now()</span>
@@ -19947,7 +20021,7 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="gi">+         SET name = $2, brand = $3, description = $4, discontinued = $5, updated_at = now()</span>
 <span class="w"> </span>         WHERE id = $1&quot;,
 <span class="w"> </span>        id,
-<span class="gu">@@ -180,4 +187,5 @@</span>
+<span class="gu">@@ -189,4 +196,5 @@</span>
 <span class="w"> </span>        new.brand,
 <span class="w"> </span>        new.description,
 <span class="gi">+        new.discontinued,</span>
@@ -19996,13 +20070,13 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="w"> </span>    pub variants: Vec&lt;VariantResponse&gt;,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -132,4 +132,5 @@</span>
+<span class="gu">@@ -133,4 +133,5 @@</span>
 <span class="w"> </span>    pub brand: String,
 <span class="w"> </span>    pub description: String,
 <span class="gi">+    pub discontinued: bool, // added by migration 0003</span>
 <span class="w"> </span>    pub image: Option&lt;Image&gt;,
-<span class="w"> </span>    pub variants: Vec&lt;Variant&gt;,    // one-to-many
-<span class="gu">@@ -145,4 +146,5 @@</span>
+<span class="w"> </span>    pub variants: Vec&lt;VariantEntity&gt;, // one-to-many
+<span class="gu">@@ -146,4 +147,5 @@</span>
 <span class="w"> </span>    pub brand: String,
 <span class="w"> </span>    pub description: String,
 <span class="gi">+    pub discontinued: bool,</span>
@@ -20010,25 +20084,25 @@ query data written to .sqlx in the current directory; please check this into ver
 <span class="w"> </span>    pub versions: Vec&lt;NewVersion&gt;,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -20,4 +20,5 @@</span>
+<span class="gu">@@ -22,4 +22,5 @@</span>
 <span class="w"> </span>            brand: request.brand,
 <span class="w"> </span>            description: request.description,
 <span class="gi">+            discontinued: request.discontinued,</span>
 <span class="w"> </span>            variants: request.variants.into_iter().map(NewVariant::from).collect(),
 <span class="w"> </span>            versions: request.versions.into_iter().map(NewVersion::from).collect(),
-<span class="gu">@@ -32,4 +33,5 @@</span>
+<span class="gu">@@ -34,4 +35,5 @@</span>
 <span class="w"> </span>            brand: request.brand,
 <span class="w"> </span>            description: request.description,
 <span class="gi">+            discontinued: request.discontinued,</span>
 <span class="w"> </span>            variants: request.variants.into_iter().map(NewVariant::from).collect(),
 <span class="w"> </span>            versions: request.versions.into_iter().map(NewVersion::from).collect(),
-<span class="gu">@@ -67,4 +69,5 @@</span>
+<span class="gu">@@ -69,4 +71,5 @@</span>
 <span class="w"> </span>            brand: product.brand,
 <span class="w"> </span>            description: product.description,
 <span class="gi">+            discontinued: product.discontinued,</span>
 <span class="w"> </span>            image: product.image.as_ref().map(ImageResponse::from),
 <span class="w"> </span>            variants: product
-<span class="gu">@@ -140,4 +143,5 @@</span>
+<span class="gu">@@ -142,4 +145,5 @@</span>
 <span class="w"> </span>            brand: &quot;B&quot;.into(),
 <span class="w"> </span>            description: String::new(),
 <span class="gi">+            discontinued: false,</span>
@@ -20157,7 +20231,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">variants</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="k">label</span><span class="w"> </span><span class="nb">TEXT</span><span class="p">;</span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs, release 1 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -219,10 +219,12 @@</span>
+<span class="gu">@@ -228,10 +228,12 @@</span>
 <span class="w"> </span>        // (Each attempt takes a number from the id sequence, even when it ends
 <span class="w"> </span>        // up updating, so ids can have gaps.)
 <span class="gi">+        // The description goes into both columns while variants.description</span>
@@ -20195,21 +20269,21 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w">    </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="k">label</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">;</span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs, release 2 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -60,5 +60,5 @@</span>
+<span class="gu">@@ -63,5 +63,5 @@</span>
 <span class="w"> </span>    .await?;
 <span class="w"> </span>    let variant_rows = sqlx::query!(
 <span class="gd">-        &quot;SELECT id, product_id, sku, description, price_cents, stock, image, image_type</span>
 <span class="gi">+        &quot;SELECT id, product_id, sku, label, price_cents, stock, image, image_type</span>
 <span class="w"> </span>         FROM variants WHERE product_id = ANY($1) ORDER BY id&quot;,
 <span class="w"> </span>        ids,
-<span class="gu">@@ -92,5 +92,5 @@</span>
-<span class="w"> </span>            id: row.id,
-<span class="w"> </span>            sku: row.sku,
-<span class="gd">-            description: row.description,</span>
-<span class="gi">+            label: row.label,</span>
-<span class="w"> </span>            price_cents: row.price_cents,
-<span class="w"> </span>            stock: row.stock,
-<span class="gu">@@ -231,5 +231,5 @@</span>
+<span class="gu">@@ -98,5 +98,5 @@</span>
+<span class="w"> </span>                id: row.id,
+<span class="w"> </span>                sku: row.sku,
+<span class="gd">-                description: row.description,</span>
+<span class="gi">+                label: row.label,</span>
+<span class="w"> </span>                price_cents: row.price_cents,
+<span class="w"> </span>                stock: row.stock,
+<span class="gu">@@ -240,5 +240,5 @@</span>
 <span class="w"> </span>            id,
 <span class="w"> </span>            variant.sku,
 <span class="gd">-            variant.description,</span>
@@ -20218,14 +20292,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>            variant.stock,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/entity.rs, release 2 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/entity.rs</span>
 <span class="gi">+++ b/src/products/entity.rs</span>
-<span class="gu">@@ -109,5 +109,5 @@</span>
+<span class="gu">@@ -110,5 +110,5 @@</span>
 <span class="w"> </span>    pub id: i64,
 <span class="w"> </span>    pub sku: String,
 <span class="gd">-    pub description: String, // colour, print, size: anything that varies</span>
 <span class="gi">+    pub label: String, // colour, print, size: anything that varies</span>
 <span class="w"> </span>    pub price_cents: i64,
 <span class="w"> </span>    pub stock: i32, // added by migration 0002
-<span class="gu">@@ -152,5 +152,5 @@</span>
+<span class="gu">@@ -153,5 +153,5 @@</span>
 <span class="w"> </span>pub struct NewVariant {
 <span class="w"> </span>    pub sku: String,
 <span class="gd">-    pub description: String,</span>
@@ -20234,14 +20308,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="w"> </span>    pub stock: i32,</code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/mapper.rs, release 2 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/mapper.rs</span>
 <span class="gi">+++ b/src/products/mapper.rs</span>
-<span class="gu">@@ -42,5 +42,5 @@</span>
+<span class="gu">@@ -44,5 +44,5 @@</span>
 <span class="w"> </span>        NewVariant {
 <span class="w"> </span>            sku: request.sku,
 <span class="gd">-            description: request.description,</span>
 <span class="gi">+            label: request.description, // the JSON keeps its name</span>
 <span class="w"> </span>            price_cents: request.price_cents,
 <span class="w"> </span>            stock: request.stock,
-<span class="gu">@@ -89,5 +89,5 @@</span>
+<span class="gu">@@ -91,5 +91,5 @@</span>
 <span class="w"> </span>            id: variant.id,
 <span class="w"> </span>            sku: variant.sku,
 <span class="gd">-            description: variant.description,</span>
@@ -20314,7 +20388,7 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <p><strong>Release 3.</strong> Only the upsert changes. Inserts that leave out <code>description</code> still work because the column has <code>DEFAULT ''</code>; without a default, this release would need a migration that drops its <code>NOT NULL</code> first.</p>
 <figure class="code plain project"><figcaption><span class="code-title">src/products/service/repo.rs, release 3 (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/products/service/repo.rs</span>
 <span class="gi">+++ b/src/products/service/repo.rs</span>
-<span class="gu">@@ -219,12 +219,10 @@</span>
+<span class="gu">@@ -228,12 +228,10 @@</span>
 <span class="w"> </span>        // (Each attempt takes a number from the id sequence, even when it ends
 <span class="w"> </span>        // up updating, so ids can have gaps.)
 <span class="gd">-        // The description goes into both columns while variants.description</span>

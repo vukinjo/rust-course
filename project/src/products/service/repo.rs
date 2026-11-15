@@ -12,7 +12,7 @@ use sqlx::PgConnection;
 
 use crate::error::CatalogError;
 use crate::products::entity::{
-    Image, NewProduct, NewVariant, NewVersion, Product, Variant, Version,
+    Image, NewProduct, NewVariant, NewVersion, ProductEntity, VariantEntity, VersionEntity,
 };
 use crate::products::model::ProductFilter;
 
@@ -50,7 +50,10 @@ pub async fn find_ids(
 /// Fetches the products with these ids, with their variants and versions:
 /// four queries in all, however many products there are, and the rows are
 /// put together in Rust.
-pub async fn load(conn: &mut PgConnection, ids: &[i64]) -> Result<Vec<Product>, CatalogError> {
+pub async fn load(
+    conn: &mut PgConnection,
+    ids: &[i64],
+) -> Result<Vec<ProductEntity>, CatalogError> {
     let products = sqlx::query!(
         "SELECT id, name, brand, description, image, image_type, created_at, updated_at
          FROM products WHERE id = ANY($1) ORDER BY id",
@@ -86,30 +89,36 @@ pub async fn load(conn: &mut PgConnection, ids: &[i64]) -> Result<Vec<Product>, 
     for link in link_rows {
         skus.entry(link.version_id).or_default().push(link.sku);
     }
-    let mut variants: HashMap<i64, Vec<Variant>> = HashMap::new();
+    let mut variants: HashMap<i64, Vec<VariantEntity>> = HashMap::new();
     for row in variant_rows {
-        variants.entry(row.product_id).or_default().push(Variant {
-            id: row.id,
-            sku: row.sku,
-            description: row.description,
-            price_cents: row.price_cents,
-            stock: row.stock,
-            image: image(row.image, row.image_type),
-        });
+        variants
+            .entry(row.product_id)
+            .or_default()
+            .push(VariantEntity {
+                id: row.id,
+                sku: row.sku,
+                description: row.description,
+                price_cents: row.price_cents,
+                stock: row.stock,
+                image: image(row.image, row.image_type),
+            });
     }
-    let mut versions: HashMap<i64, Vec<Version>> = HashMap::new();
+    let mut versions: HashMap<i64, Vec<VersionEntity>> = HashMap::new();
     for row in version_rows {
-        versions.entry(row.product_id).or_default().push(Version {
-            id: row.id,
-            number: row.number,
-            notes: row.notes,
-            released_on: row.released_on,
-            variant_skus: skus.remove(&row.id).unwrap_or_default(),
-        });
+        versions
+            .entry(row.product_id)
+            .or_default()
+            .push(VersionEntity {
+                id: row.id,
+                number: row.number,
+                notes: row.notes,
+                released_on: row.released_on,
+                variant_skus: skus.remove(&row.id).unwrap_or_default(),
+            });
     }
     Ok(products
         .into_iter()
-        .map(|row| Product {
+        .map(|row| ProductEntity {
             id: row.id,
             name: row.name,
             brand: row.brand,

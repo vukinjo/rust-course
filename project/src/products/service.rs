@@ -12,7 +12,7 @@ mod repo; // private: only the service can use the repository
 use sqlx::{PgConnection, PgPool};
 use tracing::info;
 
-use super::entity::{Image, NewProduct, Product};
+use super::entity::{Image, NewProduct, ProductEntity};
 use super::model::ProductFilter;
 use super::validate::validate;
 use crate::error::CatalogError;
@@ -32,18 +32,18 @@ impl ProductService {
         ProductService { pool, reviews }
     }
 
-    pub async fn list(&self, filter: &ProductFilter) -> Result<Vec<Product>, CatalogError> {
+    pub async fn list(&self, filter: &ProductFilter) -> Result<Vec<ProductEntity>, CatalogError> {
         let mut conn = self.pool.acquire().await?;
         let ids = repo::find_ids(&mut conn, filter).await?;
         repo::load(&mut conn, &ids).await
     }
 
-    pub async fn get(&self, id: i64) -> Result<Product, CatalogError> {
+    pub async fn get(&self, id: i64) -> Result<ProductEntity, CatalogError> {
         let mut conn = self.pool.acquire().await?;
         load_one(&mut conn, id).await
     }
 
-    pub async fn create(&self, new: NewProduct) -> Result<Product, CatalogError> {
+    pub async fn create(&self, new: NewProduct) -> Result<ProductEntity, CatalogError> {
         validate(&new)?;
         let mut tx = self.pool.begin().await?;
         let id = repo::insert_product(&mut tx, &new).await?;
@@ -57,7 +57,7 @@ impl ProductService {
 
     /// Replaces the product. A variant whose SKU was there before keeps its
     /// row, so its id and image; versions are rebuilt.
-    pub async fn update(&self, id: i64, new: NewProduct) -> Result<Product, CatalogError> {
+    pub async fn update(&self, id: i64, new: NewProduct) -> Result<ProductEntity, CatalogError> {
         validate(&new)?;
         let mut tx = self.pool.begin().await?;
         if !repo::update_product(&mut tx, id, &new).await? {
@@ -123,7 +123,7 @@ impl ProductService {
 
 /// One product, on whatever connection the caller has: inside a write's
 /// transaction, it sees that transaction's uncommitted rows.
-async fn load_one(conn: &mut PgConnection, id: i64) -> Result<Product, CatalogError> {
+async fn load_one(conn: &mut PgConnection, id: i64) -> Result<ProductEntity, CatalogError> {
     let mut products = repo::load(conn, &[id]).await?;
     products.pop().ok_or(CatalogError::NotFound(id))
 }
