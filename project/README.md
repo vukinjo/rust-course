@@ -2,18 +2,20 @@
 
 The shoe catalog service as it stands at the end of the course (Chapter 28): a REST API with axum, PostgreSQL
 through SQLx with migrations, a reqwest client for reviews, tracing logs, settings from environment variables, bearer-token
-authentication, and a Containerfile that packages it as a 35 MB image.
+authentication, an endpoint that shows what the process sees of the operating system, and a Containerfile that packages
+it as a 35 MB image.
 
 ```
 src/main.rs            start-up: tracing, settings, pool, migrations, server, graceful shutdown
 src/lib.rs             app(): the router, the token check (route_layer) and the TraceLayer
 src/auth.rs            bearer-token middleware, AuthError (401), CurrentUser and GET /me
 src/settings.rs        Settings from APP_* environment variables only (APP_ENVIRONMENT, APP_DATABASE__URL, …)
+src/system.rs          GET /system: build, system, process, resources and environment, mostly read from /proc
 src/error.rs           CatalogError and its HTTP responses
 src/reviews.rs         ReviewsClient (jsonplaceholder comments → reviews)
 src/products/          the products feature: model (DTOs), entity, mapper, validate, routes, service, service/repo
 migrations/            0001 create catalog, 0002 add variants.stock
-tests/                 API tests (#[sqlx::test]), authentication tests, reviews client tests, migration test
+tests/                 API tests (#[sqlx::test]), authentication, reviews client, migration and /system tests
 .sqlx/                 saved query metadata, so it builds without a database (SQLX_OFFLINE=true)
 assets/                sample files for image uploads (two PNGs and a text file that is not an image)
 integration-tests/     Bruno collection: integration tests for the running service
@@ -102,7 +104,7 @@ The container and `cargo run` both use port 3000, so stop one before starting th
 ## Test it
 
 ```bash
-DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes cargo test   # 41 tests; each #[sqlx::test] gets its own database
+DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes cargo test   # 46 tests; each #[sqlx::test] gets its own database
 cargo clippy --all-targets -- -D warnings
 ```
 
@@ -129,15 +131,17 @@ curl -H 'Authorization: Bearer abcdefghij' localhost:3000/products
 | `PUT/GET /products/{id}/variants/{sku}/image` | the same for a variant |
 | `GET /products/{id}/reviews` | 200, the reviews from jsonplaceholder; 502 when that service fails |
 | `GET /me` | 200, `{"id": "<user id>"}`: who the service thinks is calling |
+| `GET /system` | 200, what the process sees of the operating system: build, system, process, resources and the names of the `APP_*` variables |
 
 Errors are JSON, such as `{"error": "invalid product: the name is empty"}`. Malformed JSON and unknown fields
 or query parameters are rejected by axum's extractors, with a plain-text message.
 
 ## Integration tests with Bruno
 
-`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 39 requests and 81 tests. The five folders run
+`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 40 requests and 85 tests. The six folders run
 in order: they create a product, read it, filter it, update it, attach images, fetch its reviews and delete it,
-and then check that requests without a valid token get 401 and that `GET /me` names the caller. The collection
+and then check that requests without a valid token get 401 and that `GET /me` names the caller. The last folder reads
+`GET /system`. The collection
 sends `Authorization: Bearer {{token}}` and every request inherits it (`auth: inherit`).
 Each run puts a fresh suffix in names and SKUs, so you can run it as often as you like, even on a database that
 holds other data. The reviews requests need internet access.
@@ -157,4 +161,4 @@ With the service running:
 `environments/local.bru` points at `http://127.0.0.1:3000` and sets `token` to `test-token`; add another
 environment file for another address, or override a variable with `--env-var baseUrl=http://…`.
 
-Last verified on 2026-11-15 with Bruno CLI 4.3.0 against a fresh database.
+Last verified on 2026-11-16 with Bruno CLI 4.3.0 against the container and a fresh database.

@@ -1,9 +1,9 @@
 docs {
   # shoes API: integration tests
 
-  Integration tests for the `shoes` catalog service. Run the folders in order (01 to 05): together they
+  Integration tests for the `shoes` catalog service. Run the folders in order (01 to 06): together they
   create one product, read it back, filter it, update it, attach images, fetch reviews and delete it
-  again, then check that requests without a valid token are refused.
+  again, then check that requests without a valid token are refused. `06-system` reads `GET /system`.
 
   Every run uses a fresh suffix (`{{run}}`, set by `01-products/01 Create product`) in product names and
   SKUs, so the collection can run again and again against the same database, even next to other data.

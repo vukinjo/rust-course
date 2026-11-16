@@ -1,0 +1,40 @@
+meta {
+  name: System information
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/system
+  body: none
+  auth: inherit
+}
+
+docs {
+  What the service process sees of its operating system. Compare the answer from `cargo run` with the
+  answer from the container: the PID, the user, the hostname and the CPU and memory limits are different.
+}
+
+tests {
+  test("returns 200 OK as JSON", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("content-type")).to.contain("application/json");
+  });
+
+  test("has the five sections", function () {
+    expect(res.getBody()).to.have.all.keys("build", "system", "process", "resources", "environment");
+  });
+
+  test("describes a running process", function () {
+    const process = res.getBody().process;
+    expect(process.pid).to.be.a("number").and.above(0);
+    expect(process.uptimeSeconds).to.be.a("number");
+    expect(res.getBody().resources.availableCpus).to.be.above(0);
+  });
+
+  test("lists the names of the settings variables, not their values", function () {
+    const variables = res.getBody().environment.variables;
+    expect(variables).to.include("APP_DATABASE__URL");
+    variables.forEach((name) => expect(name).to.match(/^APP_[A-Z_]+$/));
+  });
+}

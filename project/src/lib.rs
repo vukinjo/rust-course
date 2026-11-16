@@ -10,13 +10,14 @@ pub mod error;
 pub mod products;
 pub mod reviews;
 pub mod settings;
+pub mod system;
 
 pub use error::CatalogError;
 use products::ProductService;
 
 /// The whole HTTP application. Each feature module contributes its routes:
-/// the products, and `GET /me` from `auth`. Middleware for every route goes
-/// here:
+/// the products, `GET /me` from `auth`, and `GET /system`. Middleware for
+/// every route goes here:
 ///
 /// - `route_layer` runs the token check only for requests that match a
 ///   route, so an unknown path is still 404, not 401;
@@ -28,6 +29,7 @@ use products::ProductService;
 pub fn app(products: ProductService) -> Router {
     products::router(products)
         .merge(auth::router())
+        .merge(system::router(system::Started::now()))
         .route_layer(middleware::from_fn(auth::require_bearer_token))
         .layer(
             TraceLayer::new_for_http()

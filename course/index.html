@@ -22041,8 +22041,8 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#ch28-containers"><span>Next · Chapter 28</span>Shipping the Service in a Container</a></footer></section>
-<section class="chapter" id="ch28-containers" aria-labelledby="ch28-containers-h"><header class="ch-head"><div class="ch-num">Chapter 28</div><h2 id="ch28-containers-h">Shipping the Service in a Container</h2><p class="lede">A release binary built for size. A Containerfile with two stages, which compiles the binary in a Rust image and copies it into an image of 35 MB without a shell and without configuration. The service in Podman next to its database, configured by environment variables, with a clean shutdown as PID 1.</p></header>
-<p>Until now, the service ran with <code>cargo run</code> on your computer. In production, it runs in a different place, and today that is usually a container image. A Rust service is easy to package. At run time, it needs one executable, its settings and the C library, and nothing more: no runtime, no interpreter, no dependency folder. This chapter builds that executable for release and puts it in an image. Then it runs the image in Podman next to the PostgreSQL container from Chapter 25. The Rust code does not change. From Chapter 25, the service takes all its settings from environment variables, and a container needs exactly that.</p>
+<section class="chapter" id="ch28-containers" aria-labelledby="ch28-containers-h"><header class="ch-head"><div class="ch-num">Chapter 28</div><h2 id="ch28-containers-h">Shipping the Service in a Container</h2><p class="lede">A release binary built for size. A Containerfile with two stages, which compiles the binary in a Rust image and copies it into an image of 35 MB without a shell and without configuration. The service in Podman next to its database, configured by environment variables, with a clean shutdown as PID 1. An endpoint that shows what the process sees of the operating system.</p></header>
+<p>Until now, the service ran with <code>cargo run</code> on your computer. In production, it runs in a different place, and today that is usually a container image. A Rust service is easy to package. At run time, it needs one executable, its settings and the C library, and nothing more: no runtime, no interpreter, no dependency folder. This chapter builds that executable for release and puts it in an image. Then it runs the image in Podman next to the PostgreSQL container from Chapter 25. The container needs no change to the Rust code: from Chapter 25, the service takes all its settings from environment variables. At the end, a new endpoint, <code>GET /system</code>, shows what the process sees of the operating system, on your computer and in the container.</p>
 
 <h3 id="containers-release-builds">Release builds</h3>
 <p><code>cargo build</code> uses the <code>dev</code> profile: no optimizations and full debug information. Thus, it compiles quickly and is good for debugging. <code>cargo build --release</code> uses the <code>release</code> profile, which optimizes for speed. A profile is a named set of compiler settings in <code>Cargo.toml</code>. You can add your own profile, which starts from a built-in profile with <code>inherits</code>. The service gets a <code>small</code> profile, which builds the release binary optimized for size:</p>
@@ -22085,7 +22085,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>A Spring Boot fat jar needs a JRE in the image, and the JRE alone is some hundred megabytes. The JVM also needs memory flags that agree with the limits of the container, and time to warm up. The nearest JVM equivalent to this binary is a GraalVM <code>native-image</code>: one executable, fast start-up, no JRE. In Java, it is an extra build with its own limits on reflection. In Rust, the compiler always makes a native executable.</p></aside>
 
 <h3 id="containers-project-step">Project step 28: a container image</h3>
-<aside class="callout c-new"><div class="callout-label">This step</div><p><code>Cargo.toml</code> gets the <code>small</code> profile, and two new files package the service. A <code>Containerfile</code> builds the binary in a Rust image and copies it, and nothing else, into a minimal runtime image. A <code>.containerignore</code> keeps the build context small. No Rust code changes.</p></aside>
+<aside class="callout c-new"><div class="callout-label">This step</div><p><code>Cargo.toml</code> gets the <code>small</code> profile, and two new files package the service. A <code>Containerfile</code> builds the binary in a Rust image and copies it, and nothing else, into a minimal runtime image. A <code>.containerignore</code> keeps the build context small. The container needs no change to the Rust code. A new module, <code>src/system.rs</code>, adds <code>GET /system</code>, which the section <a href="#containers-system">What the process sees</a> explains.</p></aside>
 <figure class="code plain project" data-diff-file="Cargo.toml" data-diff-since="27"><figcaption><span class="code-title">Cargo.toml (changes since step 27)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/Cargo.toml</span>
 <span class="gi">+++ b/Cargo.toml</span>
 <span class="gu">@@ -23,2 +23,12 @@</span>
@@ -22262,9 +22262,532 @@ podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </sp
 2026-11-16T00:54:29.420669Z  INFO request{method=POST uri=/products version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=5 ms status=201
 2026-11-16T00:54:29.485630Z  INFO request{method=GET uri=/products/1/reviews version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=58 ms status=200
 2026-11-16T00:54:31.067831Z  INFO shoes: stopped</code></pre></figure>
-<p>The log shows the <code>staging</code> environment and the values from the env file: the address and five connections. The reviews request got to jsonplaceholder over HTTPS, so the CA certificates are available. <code>podman stop</code> returned in less than one second. The last line, <code>stopped</code>, shows that the graceful shutdown from Chapter 22 ran. The Bruno collection from <code>integration-tests/</code> of the project runs against the container without changes: 39 requests and 81 tests pass. If you add <code>LOG_FORMAT=json</code> to the env file, the log changes to one JSON object on each line. A log collector that reads the output of the container needs this format.</p>
+<p>The log shows the <code>staging</code> environment and the values from the env file: the address and five connections. The reviews request got to jsonplaceholder over HTTPS, so the CA certificates are available. <code>podman stop</code> returned in less than one second. The last line, <code>stopped</code>, shows that the graceful shutdown from Chapter 22 ran. The Bruno collection from <code>integration-tests/</code> of the project runs against the container: 40 requests and 85 tests pass, with the <code>GET /system</code> request from the section below. If you add <code>LOG_FORMAT=json</code> to the env file, the log changes to one JSON object on each line. A log collector that reads the output of the container needs this format.</p>
 <aside class="callout c-os"><div class="callout-label">OS view</div><p>The exec-form <code>ENTRYPOINT</code> makes <code>/usr/local/bin/shoes</code> process 1 of the PID namespace of the container (<code>podman top</code> shows it). The kernel handles PID 1 in a special way. If the process has no handler for a signal, the kernel ignores the signal, and does not do its default action. Thus, a plain SIGTERM does not stop it. <code>podman stop</code> sends SIGTERM, waits 10 seconds, and then sends SIGKILL. The process cannot ignore SIGKILL, but SIGKILL stops the requests in progress. The service stops in less than one second, because <code>shutdown_signal</code> in <code>main.rs</code> installs a SIGTERM handler. Then axum finishes the requests in progress. Kubernetes stops pods in the same way, with a default grace period of 30 seconds.</p></aside>
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>The JVM installs its own SIGTERM handler, which runs the shutdown hooks. From there, <code>server.shutdown=graceful</code> in Spring Boot waits for the requests in progress. A Rust binary has no runtime that does this for you. For this reason, Chapter 22 wrote <code>shutdown_signal</code>.</p></aside>
+
+<h3 id="containers-system">What the process sees: <code>GET /system</code></h3>
+<p>A container is a usual Linux process. The kernel gives it its own view of the system with <em>namespaces</em>: its own process IDs, hostname and file system. It limits its resources with <em>cgroups</em>. A new endpoint, <code>GET /system</code>, shows this view. Call it on <code>cargo run</code> and in the container, and compare the answers.</p>
+<p>The new module is a feature module like <code>auth.rs</code>: it adds one route, and <code>app()</code> merges it before the token check. Thus, the endpoint needs a token, like all other routes.</p>
+<figure class="code plain project" data-diff-file="src/lib.rs" data-diff-since="27"><figcaption><span class="code-title">src/lib.rs (changes since step 27)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
+<span class="gi">+++ b/src/lib.rs</span>
+<span class="gu">@@ -11,4 +11,5 @@</span>
+<span class="w"> </span>pub mod reviews;
+<span class="w"> </span>pub mod settings;
+<span class="gi">+pub mod system;</span>
+<span class="w"> </span>
+<span class="w"> </span>pub use error::CatalogError;
+<span class="gu">@@ -16,6 +17,6 @@</span>
+<span class="w"> </span>
+<span class="w"> </span>/// The whole HTTP application. Each feature module contributes its routes:
+<span class="gd">-/// the products, and `GET /me` from `auth`. Middleware for every route goes</span>
+<span class="gd">-/// here:</span>
+<span class="gi">+/// the products, `GET /me` from `auth`, and `GET /system`. Middleware for</span>
+<span class="gi">+/// every route goes here:</span>
+<span class="w"> </span>///
+<span class="w"> </span>/// - `route_layer` runs the token check only for requests that match a
+<span class="gu">@@ -29,4 +30,5 @@</span>
+<span class="w"> </span>    products::router(products)
+<span class="w"> </span>        .merge(auth::router())
+<span class="gi">+        .merge(system::router(system::Started::now()))</span>
+<span class="w"> </span>        .route_layer(middleware::from_fn(auth::require_bearer_token))
+<span class="w"> </span>        .layer(</code></pre></figure>
+<p>On Linux, almost all values come from files in <code>/proc</code> and <code>/sys</code>. These files are not on a disk. The kernel makes their content when a program reads them. Thus, a file read is how a program asks the kernel, and the standard library is sufficient (Chapter 19):</p>
+<ul>
+<li><code>/proc/self/status</code> gives the parent process, the user and group ids, the number of threads and the memory in use (<code>VmRSS</code>). <code>/proc/self</code> always points to the process that reads it.</li>
+<li><code>/proc/self/fd</code> has one entry for each open file descriptor. <code>/proc/self/limits</code> gives the limit for open files.</li>
+<li><code>/proc/sys/kernel/</code> gives the hostname and the kernel version. <code>/proc/uptime</code> and <code>/proc/loadavg</code> give the uptime and the load of the system.</li>
+<li><code>/proc/self/cgroup</code> names the cgroup of the process. Its files are in <code>/sys/fs/cgroup</code>, and <code>memory.max</code> contains the memory limit.</li>
+<li>The standard library gives the other values: <code>std::process::id()</code>, <code>env::current_exe()</code>, <code>env::current_dir()</code>, <code>thread::available_parallelism()</code>, and the constants in <code>std::env::consts</code>, which the compiler sets.</li>
+</ul>
+<figure class="code plain project"><figcaption><span class="code-title">src/system.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! `GET /system`: what the running process sees of the operating system, for</span>
+<span class="sd">//! learning. Call it once on `cargo run` and once in the container, and</span>
+<span class="sd">//! compare the answers.</span>
+<span class="sd">//!</span>
+<span class="sd">//! On Linux, almost all values come from files in `/proc` and `/sys`. The</span>
+<span class="sd">//! kernel makes their content when a program reads them, so reading them is</span>
+<span class="sd">//! how a program asks the kernel. On other systems, these fields are `null`.</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">env</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">fs</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">path</span><span class="p">::</span><span class="n">Path</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">thread</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::{</span><span class="n">Instant</span><span class="p">,</span><span class="w"> </span><span class="n">SystemTime</span><span class="p">};</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">axum</span><span class="p">::</span><span class="n">extract</span><span class="p">::</span><span class="n">State</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">axum</span><span class="p">::</span><span class="n">routing</span><span class="p">::</span><span class="n">get</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">axum</span><span class="p">::{</span><span class="n">Json</span><span class="p">,</span><span class="w"> </span><span class="n">Router</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">chrono</span><span class="p">::{</span><span class="n">DateTime</span><span class="p">,</span><span class="w"> </span><span class="n">Utc</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">serde</span><span class="p">::</span><span class="n">Serialize</span><span class="p">;</span>
+
+<span class="sd">/// When the service started, for the uptime of the process.</span>
+<span class="cp">#[derive(Debug, Clone, Copy)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Started</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">instant</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">,</span>
+<span class="w">    </span><span class="n">at</span><span class="p">:</span><span class="w"> </span><span class="nc">SystemTime</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">Started</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">now</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Started</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">Started</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">instant</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">::</span><span class="n">now</span><span class="p">(),</span>
+<span class="w">            </span><span class="n">at</span><span class="p">:</span><span class="w"> </span><span class="nc">SystemTime</span><span class="p">::</span><span class="n">now</span><span class="p">(),</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">router</span><span class="p">(</span><span class="n">started</span><span class="p">:</span><span class="w"> </span><span class="nc">Started</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Router</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Router</span><span class="p">::</span><span class="n">new</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">route</span><span class="p">(</span><span class="s">&quot;/system&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">get</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
+<span class="w">        </span><span class="p">.</span><span class="n">with_state</span><span class="p">(</span><span class="n">started</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">system</span><span class="p">(</span><span class="n">State</span><span class="p">(</span><span class="n">started</span><span class="p">):</span><span class="w"> </span><span class="nc">State</span><span class="o">&lt;</span><span class="n">Started</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Json</span><span class="o">&lt;</span><span class="n">SystemInfo</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// The files in /proc are in memory, but a file read is still a blocking</span>
+<span class="w">    </span><span class="c1">// call. Thus, all reads run on the blocking thread pool of Tokio.</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tokio</span><span class="p">::</span><span class="n">task</span><span class="p">::</span><span class="n">spawn_blocking</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">SystemInfo</span><span class="p">::</span><span class="n">collect</span><span class="p">(</span><span class="n">started</span><span class="p">))</span>
+<span class="w">        </span><span class="p">.</span><span class="k">await</span>
+<span class="w">        </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&quot;collecting the system information does not panic&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Json</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">SystemInfo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">build</span><span class="p">:</span><span class="w"> </span><span class="nc">Build</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">system</span><span class="p">:</span><span class="w"> </span><span class="nc">System</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">process</span><span class="p">:</span><span class="w"> </span><span class="nc">Process</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">resources</span><span class="p">:</span><span class="w"> </span><span class="nc">Resources</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">environment</span><span class="p">:</span><span class="w"> </span><span class="nc">Environment</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="sd">/// Fixed when the binary was compiled.</span>
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="cp">#[serde(rename_all = </span><span class="s">&quot;camelCase&quot;</span><span class="cp">)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Build</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">os</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">arch</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// The C library: &quot;gnu&quot; (glibc) or &quot;musl&quot;</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">target_env</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// True in the dev profile, false in release and small</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">debug_assertions</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="sd">/// The computer, or the container, that the process runs on.</span>
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="cp">#[serde(rename_all = </span><span class="s">&quot;camelCase&quot;</span><span class="cp">)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">System</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// In a container, its own hostname: the UTS namespace</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">hostname</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// From /etc/os-release, which belongs to the image in a container</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">os_name</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// The kernel, which a container shares with its host</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">kernel</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">uptime_seconds</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Runnable processes, averaged over 1, 5 and 15 minutes</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">load_average</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">f64</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">in_container</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Kernel</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">release</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="sd">/// This process.</span>
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="cp">#[serde(rename_all = </span><span class="s">&quot;camelCase&quot;</span><span class="cp">)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Process</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// 1 in a container: the PID namespace</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">pid</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">parent_pid</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">uid</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">gid</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">executable</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">working_directory</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">started_at</span><span class="p">:</span><span class="w"> </span><span class="nc">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">uptime_seconds</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="sd">/// What the process uses, and its limits.</span>
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="cp">#[serde(rename_all = </span><span class="s">&quot;camelCase&quot;</span><span class="cp">)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Resources</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// The main thread, the Tokio workers and the blocking threads</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">threads</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Sockets, database connections and other files</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">open_files</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">open_files_limit</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">resident_memory_bytes</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Follows the CPU limit of the cgroup</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">available_cpus</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// The memory limit of the cgroup, null if there is none</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">memory_limit_bytes</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="sd">/// Only the names of the settings variables: the values can contain secrets.</span>
+<span class="cp">#[derive(Debug, Serialize)]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Environment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">variables</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">SystemInfo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">collect</span><span class="p">(</span><span class="n">started</span><span class="p">:</span><span class="w"> </span><span class="nc">Started</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SystemInfo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="s">&quot;/proc/self/status&quot;</span><span class="p">).</span><span class="n">unwrap_or_default</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">field</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="n">key</span><span class="o">|</span><span class="w"> </span><span class="n">status_field</span><span class="p">(</span><span class="o">&amp;</span><span class="n">status</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">);</span>
+<span class="w">        </span><span class="n">SystemInfo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">build</span><span class="p">:</span><span class="w"> </span><span class="nc">Build</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;CARGO_PKG_VERSION&quot;</span><span class="p">),</span>
+<span class="w">                </span><span class="n">os</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="p">::</span><span class="n">consts</span><span class="p">::</span><span class="n">OS</span><span class="p">,</span>
+<span class="w">                </span><span class="n">arch</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="p">::</span><span class="n">consts</span><span class="p">::</span><span class="n">ARCH</span><span class="p">,</span>
+<span class="w">                </span><span class="n">target_env</span><span class="p">:</span><span class="w"> </span><span class="nc">TARGET_ENV</span><span class="p">,</span>
+<span class="w">                </span><span class="n">debug_assertions</span><span class="p">:</span><span class="w"> </span><span class="nc">cfg</span><span class="o">!</span><span class="p">(</span><span class="n">debug_assertions</span><span class="p">),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="n">system</span><span class="p">:</span><span class="w"> </span><span class="nc">System</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">hostname</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/sys/kernel/hostname&quot;</span><span class="p">),</span>
+<span class="w">                </span><span class="n">os_name</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/etc/os-release&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">text</span><span class="o">|</span><span class="w"> </span><span class="n">os_release_name</span><span class="p">(</span><span class="o">&amp;</span><span class="n">text</span><span class="p">)),</span>
+<span class="w">                </span><span class="n">kernel</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/sys/kernel/ostype&quot;</span><span class="p">),</span>
+<span class="w">                    </span><span class="n">release</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/sys/kernel/osrelease&quot;</span><span class="p">),</span>
+<span class="w">                    </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/sys/kernel/version&quot;</span><span class="p">),</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="n">uptime_seconds</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/uptime&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">text</span><span class="o">|</span><span class="w"> </span><span class="n">first_number</span><span class="p">(</span><span class="o">&amp;</span><span class="n">text</span><span class="p">)),</span>
+<span class="w">                </span><span class="n">load_average</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/loadavg&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">text</span><span class="o">|</span><span class="w"> </span><span class="n">load_average</span><span class="p">(</span><span class="o">&amp;</span><span class="n">text</span><span class="p">)),</span>
+<span class="w">                </span><span class="n">in_container</span><span class="p">:</span><span class="w"> </span><span class="nc">Path</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;/run/.containerenv&quot;</span><span class="p">).</span><span class="n">exists</span><span class="p">()</span>
+<span class="w">                    </span><span class="o">||</span><span class="w"> </span><span class="n">Path</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;/.dockerenv&quot;</span><span class="p">).</span><span class="n">exists</span><span class="p">(),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="n">process</span><span class="p">:</span><span class="w"> </span><span class="nc">Process</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">pid</span><span class="p">:</span><span class="w"> </span><span class="nc">std</span><span class="p">::</span><span class="n">process</span><span class="p">::</span><span class="n">id</span><span class="p">(),</span>
+<span class="w">                </span><span class="n">parent_pid</span><span class="p">:</span><span class="w"> </span><span class="nc">field</span><span class="p">(</span><span class="s">&quot;PPid&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">parse</span><span class="p">().</span><span class="n">ok</span><span class="p">()),</span>
+<span class="w">                </span><span class="n">uid</span><span class="p">:</span><span class="w"> </span><span class="nc">field</span><span class="p">(</span><span class="s">&quot;Uid&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="n">first_number</span><span class="p">),</span>
+<span class="w">                </span><span class="n">gid</span><span class="p">:</span><span class="w"> </span><span class="nc">field</span><span class="p">(</span><span class="s">&quot;Gid&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="n">first_number</span><span class="p">),</span>
+<span class="w">                </span><span class="n">executable</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="p">::</span><span class="n">current_exe</span><span class="p">().</span><span class="n">ok</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">display</span><span class="p">().</span><span class="n">to_string</span><span class="p">()),</span>
+<span class="w">                </span><span class="n">working_directory</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="p">::</span><span class="n">current_dir</span><span class="p">().</span><span class="n">ok</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">display</span><span class="p">().</span><span class="n">to_string</span><span class="p">()),</span>
+<span class="w">                </span><span class="n">started_at</span><span class="p">:</span><span class="w"> </span><span class="nc">DateTime</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">started</span><span class="p">.</span><span class="n">at</span><span class="p">),</span>
+<span class="w">                </span><span class="n">uptime_seconds</span><span class="p">:</span><span class="w"> </span><span class="nc">started</span><span class="p">.</span><span class="n">instant</span><span class="p">.</span><span class="n">elapsed</span><span class="p">().</span><span class="n">as_secs</span><span class="p">(),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="n">resources</span><span class="p">:</span><span class="w"> </span><span class="nc">Resources</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">threads</span><span class="p">:</span><span class="w"> </span><span class="nc">field</span><span class="p">(</span><span class="s">&quot;Threads&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">parse</span><span class="p">().</span><span class="n">ok</span><span class="p">()),</span>
+<span class="w">                </span><span class="n">open_files</span><span class="p">:</span><span class="w"> </span><span class="nc">fs</span><span class="p">::</span><span class="n">read_dir</span><span class="p">(</span><span class="s">&quot;/proc/self/fd&quot;</span><span class="p">).</span><span class="n">ok</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">dir</span><span class="o">|</span><span class="w"> </span><span class="n">dir</span><span class="p">.</span><span class="n">count</span><span class="p">()),</span>
+<span class="w">                </span><span class="n">open_files_limit</span><span class="p">:</span><span class="w"> </span><span class="nc">read</span><span class="p">(</span><span class="s">&quot;/proc/self/limits&quot;</span><span class="p">)</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">text</span><span class="o">|</span><span class="w"> </span><span class="n">soft_limit</span><span class="p">(</span><span class="o">&amp;</span><span class="n">text</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Max open files&quot;</span><span class="p">)),</span>
+<span class="w">                </span><span class="n">resident_memory_bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">field</span><span class="p">(</span><span class="s">&quot;VmRSS&quot;</span><span class="p">)</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">and_then</span><span class="p">(</span><span class="n">first_number</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">kib</span><span class="o">|</span><span class="w"> </span><span class="n">kib</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">),</span>
+<span class="w">                </span><span class="n">available_cpus</span><span class="p">:</span><span class="w"> </span><span class="nc">thread</span><span class="p">::</span><span class="n">available_parallelism</span><span class="p">().</span><span class="n">ok</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">n</span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="p">.</span><span class="n">get</span><span class="p">()),</span>
+<span class="w">                </span><span class="c1">// memory.max is &quot;max&quot; when there is no limit, which does not parse</span>
+<span class="w">                </span><span class="n">memory_limit_bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">cgroup_file</span><span class="p">(</span><span class="s">&quot;memory.max&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="o">|</span><span class="n">max</span><span class="o">|</span><span class="w"> </span><span class="n">max</span><span class="p">.</span><span class="n">parse</span><span class="p">().</span><span class="n">ok</span><span class="p">()),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="n">environment</span><span class="p">:</span><span class="w"> </span><span class="nc">Environment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nc">env</span><span class="p">::</span><span class="n">var</span><span class="p">(</span><span class="s">&quot;APP_ENVIRONMENT&quot;</span><span class="p">).</span><span class="n">ok</span><span class="p">(),</span>
+<span class="w">                </span><span class="n">variables</span><span class="p">:</span><span class="w"> </span><span class="nc">settings_variables</span><span class="p">(),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">const</span><span class="w"> </span><span class="n">TARGET_ENV</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="fm">cfg!</span><span class="p">(</span><span class="n">target_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;gnu&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s">&quot;gnu&quot;</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="fm">cfg!</span><span class="p">(</span><span class="n">target_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;musl&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s">&quot;musl&quot;</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s">&quot;&quot;</span>
+<span class="p">};</span>
+
+<span class="sd">/// A file as text without the newline at the end, or None if it cannot be</span>
+<span class="sd">/// read (for example, /proc on macOS).</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">path</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fs</span><span class="p">::</span><span class="n">read_to_string</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">ok</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">text</span><span class="o">|</span><span class="w"> </span><span class="n">text</span><span class="p">.</span><span class="n">trim_end</span><span class="p">().</span><span class="n">to_string</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="sd">/// The value of `key` in /proc/self/status, where each line is &quot;Key:\tvalue&quot;.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">status_field</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">status</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">status</span><span class="p">.</span><span class="n">lines</span><span class="p">().</span><span class="n">find_map</span><span class="p">(</span><span class="o">|</span><span class="n">line</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">line</span><span class="p">.</span><span class="n">split_once</span><span class="p">(</span><span class="sc">&#39;:&#39;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">key</span><span class="p">).</span><span class="n">then</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="n">value</span><span class="p">.</span><span class="n">trim</span><span class="p">())</span>
+<span class="w">    </span><span class="p">})</span>
+<span class="p">}</span>
+
+<span class="sd">/// The first number in a text such as &quot;1000\t1000\t1000\t1000&quot; or &quot;8832 kB&quot;.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">first_number</span><span class="o">&lt;</span><span class="n">T</span><span class="p">:</span><span class="w"> </span><span class="nc">std</span><span class="p">::</span><span class="kt">str</span><span class="p">::</span><span class="n">FromStr</span><span class="o">&gt;</span><span class="p">(</span><span class="n">text</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">text</span><span class="p">.</span><span class="n">split_whitespace</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="o">?</span>
+<span class="w">        </span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="sc">&#39;.&#39;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="o">?</span>
+<span class="w">        </span><span class="p">.</span><span class="n">parse</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">ok</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="sd">/// &quot;0.52 0.58 0.59 1/512 4242&quot;: the first three numbers.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">load_average</span><span class="p">(</span><span class="n">text</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">f64</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">numbers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">text</span><span class="p">.</span><span class="n">split_whitespace</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">n</span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="p">.</span><span class="n">parse</span><span class="p">().</span><span class="n">ok</span><span class="p">());</span>
+<span class="w">    </span><span class="nb">Some</span><span class="p">([</span><span class="n">numbers</span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="o">??</span><span class="p">,</span><span class="w"> </span><span class="n">numbers</span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="o">??</span><span class="p">,</span><span class="w"> </span><span class="n">numbers</span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="o">??</span><span class="p">])</span>
+<span class="p">}</span>
+
+<span class="sd">/// The soft limit in a line of /proc/self/limits, such as</span>
+<span class="sd">/// &quot;Max open files            1024                 524288               files&quot;.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">soft_limit</span><span class="p">(</span><span class="n">limits</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">limits</span><span class="p">.</span><span class="n">lines</span><span class="p">().</span><span class="n">find</span><span class="p">(</span><span class="o">|</span><span class="n">line</span><span class="o">|</span><span class="w"> </span><span class="n">line</span><span class="p">.</span><span class="n">starts_with</span><span class="p">(</span><span class="n">name</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="n">line</span><span class="p">[</span><span class="n">name</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="o">..</span><span class="p">].</span><span class="n">split_whitespace</span><span class="p">().</span><span class="n">next</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">parse</span><span class="p">().</span><span class="n">ok</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="sd">/// PRETTY_NAME=&quot;Debian GNU/Linux 13 (trixie)&quot; in /etc/os-release.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">os_release_name</span><span class="p">(</span><span class="n">text</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">text</span>
+<span class="w">        </span><span class="p">.</span><span class="n">lines</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">find_map</span><span class="p">(</span><span class="o">|</span><span class="n">line</span><span class="o">|</span><span class="w"> </span><span class="n">line</span><span class="p">.</span><span class="n">strip_prefix</span><span class="p">(</span><span class="s">&quot;PRETTY_NAME=&quot;</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">value</span><span class="p">.</span><span class="n">trim_matches</span><span class="p">(</span><span class="sc">&#39;&quot;&#39;</span><span class="p">).</span><span class="n">to_string</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="sd">/// A file of the cgroup of this process. /proc/self/cgroup names the cgroup</span>
+<span class="sd">/// (&quot;0::/user.slice/...&quot; on your computer, &quot;0::/&quot; in a container), and its</span>
+<span class="sd">/// files are in /sys/fs/cgroup.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">cgroup_file</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">cgroup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="s">&quot;/proc/self/cgroup&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cgroup</span><span class="p">.</span><span class="n">lines</span><span class="p">().</span><span class="n">find_map</span><span class="p">(</span><span class="o">|</span><span class="n">line</span><span class="o">|</span><span class="w"> </span><span class="n">line</span><span class="p">.</span><span class="n">strip_prefix</span><span class="p">(</span><span class="s">&quot;0::&quot;</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="n">read</span><span class="p">(</span><span class="o">&amp;</span><span class="fm">format!</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;/sys/fs/cgroup{}/{name}&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="n">path</span><span class="p">.</span><span class="n">trim_end_matches</span><span class="p">(</span><span class="sc">&#39;/&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="sd">/// The names of the APP_* variables, sorted. Never their values.</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">settings_variables</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">env</span><span class="p">::</span><span class="n">vars_os</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">filter_map</span><span class="p">(</span><span class="o">|</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="o">|</span><span class="w"> </span><span class="n">name</span><span class="p">.</span><span class="n">into_string</span><span class="p">().</span><span class="n">ok</span><span class="p">())</span>
+<span class="w">        </span><span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="n">name</span><span class="o">|</span><span class="w"> </span><span class="n">name</span><span class="p">.</span><span class="n">starts_with</span><span class="p">(</span><span class="s">&quot;APP_&quot;</span><span class="p">))</span>
+<span class="w">        </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+<span class="w">    </span><span class="n">names</span><span class="p">.</span><span class="n">sort</span><span class="p">();</span>
+<span class="w">    </span><span class="n">names</span>
+<span class="p">}</span>
+
+<span class="cp">#[cfg(test)]</span>
+<span class="k">mod</span><span class="w"> </span><span class="nn">tests</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">STATUS</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Name:</span><span class="se">\t</span><span class="s">shoes</span><span class="se">\n</span><span class="s">PPid:</span><span class="se">\t</span><span class="s">1</span><span class="se">\n</span><span class="s">Uid:</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\n</span><span class="s">\</span>
+<span class="s">                          Gid:</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\t</span><span class="s">65532</span><span class="se">\n</span><span class="s">VmRSS:</span><span class="se">\t</span><span class="s">   12288 kB</span><span class="se">\n</span><span class="s">Threads:</span><span class="se">\t</span><span class="s">9</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">reads_fields_of_proc_status</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">status_field</span><span class="p">(</span><span class="n">STATUS</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Threads&quot;</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;9&quot;</span><span class="p">));</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
+<span class="w">            </span><span class="n">status_field</span><span class="p">(</span><span class="n">STATUS</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Uid&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="n">first_number</span><span class="p">),</span>
+<span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="mi">65532</span><span class="p">)</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
+<span class="w">            </span><span class="n">status_field</span><span class="p">(</span><span class="n">STATUS</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;VmRSS&quot;</span><span class="p">).</span><span class="n">and_then</span><span class="p">(</span><span class="n">first_number</span><span class="p">),</span>
+<span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="mi">12288</span><span class="p">)</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">status_field</span><span class="p">(</span><span class="n">STATUS</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Missing&quot;</span><span class="p">),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">reads_limits_and_load</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">limits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Limit                     Soft Limit           Hard Limit           Units</span><span class="se">\n</span><span class="s">\</span>
+<span class="s">                      Max open files            1024                 524288               files</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">soft_limit</span><span class="p">(</span><span class="n">limits</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Max open files&quot;</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">1024</span><span class="p">));</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
+<span class="w">            </span><span class="n">load_average</span><span class="p">(</span><span class="s">&quot;0.52 0.58 0.59 1/512 4242&quot;</span><span class="p">),</span>
+<span class="w">            </span><span class="nb">Some</span><span class="p">([</span><span class="mf">0.52</span><span class="p">,</span><span class="w"> </span><span class="mf">0.58</span><span class="p">,</span><span class="w"> </span><span class="mf">0.59</span><span class="p">])</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">first_number</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;8123.45 31234.56&quot;</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">8123</span><span class="p">));</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">reads_the_os_name</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PRETTY_NAME=</span><span class="se">\&quot;</span><span class="s">Debian GNU/Linux 13 (trixie)</span><span class="se">\&quot;\n</span><span class="s">NAME=</span><span class="se">\&quot;</span><span class="s">Debian GNU/Linux</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
+<span class="w">            </span><span class="n">os_release_name</span><span class="p">(</span><span class="n">text</span><span class="p">).</span><span class="n">as_deref</span><span class="p">(),</span>
+<span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;Debian GNU/Linux 13 (trixie)&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">lists_only_names</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Under cargo test, .cargo/config.toml sets the APP_* variables</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">settings_variables</span><span class="p">();</span>
+<span class="w">        </span><span class="fm">assert!</span><span class="p">(</span><span class="n">names</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="o">&amp;</span><span class="s">&quot;APP_DATABASE__URL&quot;</span><span class="p">.</span><span class="n">to_string</span><span class="p">()));</span>
+<span class="w">        </span><span class="fm">assert!</span><span class="p">(</span><span class="n">names</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">all</span><span class="p">(</span><span class="o">|</span><span class="n">name</span><span class="o">|</span><span class="w"> </span><span class="n">name</span><span class="p">.</span><span class="n">starts_with</span><span class="p">(</span><span class="s">&quot;APP_&quot;</span><span class="p">)));</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+<p>Some details:</p>
+<ul>
+<li><strong>Each value is optional.</strong> <code>read</code> returns <code>None</code> if a file is not available. macOS has no <code>/proc</code>, so these fields are <code>null</code> there, and the code needs no <code>#[cfg]</code>.</li>
+<li><strong>Blocking reads go to the blocking pool.</strong> The files in <code>/proc</code> are in memory, but each read is a blocking system call. <code>spawn_blocking</code> runs the full collection on the blocking thread pool of Tokio (Chapter 21). This is one move to a different thread. With <code>tokio::fs</code>, there is one move for each file.</li>
+<li><strong>Only the names of the variables.</strong> The values of the <code>APP_*</code> variables include the database password. Thus, the endpoint returns only their names.</li>
+<li><strong>The start time</strong> comes from <code>Started</code>, which <code>app()</code> makes one time and gives to the router as state. <code>Instant</code> gives the uptime, and <code>SystemTime</code> gives the time of day for <code>startedAt</code> (Chapter 19).</li>
+<li><strong>The code cannot see the build profile.</strong> Rust gives no name of the Cargo profile to the code. <code>cfg!(debug_assertions)</code> is true in <code>dev</code> and false in <code>release</code> and <code>small</code>, which is sufficient here.</li>
+</ul>
+<p>The test runs in the same process as the app. Thus, the process fields describe the test itself: the PID is the PID of the test binary.</p>
+<figure class="code plain project"><figcaption><span class="code-title">tests/system.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! `GET /system` through the whole app. The test runs in the same process as</span>
+<span class="sd">//! the app, so the process fields must describe the test itself.</span>
+<span class="k">mod</span><span class="w"> </span><span class="nn">common</span><span class="p">;</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">common</span><span class="p">::{</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">call</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">sqlx</span><span class="p">::</span><span class="n">PgPool</span><span class="p">;</span>
+
+<span class="cp">#[sqlx::test]</span>
+<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">describes_the_running_process</span><span class="p">(</span><span class="n">pool</span><span class="p">:</span><span class="w"> </span><span class="nc">PgPool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">app</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">app</span><span class="p">(</span><span class="n">pool</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">call</span><span class="p">(</span><span class="o">&amp;</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;GET&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/system&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">None</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">status</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">);</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="s">&quot;build&quot;</span><span class="p">][</span><span class="s">&quot;version&quot;</span><span class="p">],</span><span class="w"> </span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;CARGO_PKG_VERSION&quot;</span><span class="p">));</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="s">&quot;build&quot;</span><span class="p">][</span><span class="s">&quot;debugAssertions&quot;</span><span class="p">],</span><span class="w"> </span><span class="fm">cfg!</span><span class="p">(</span><span class="n">debug_assertions</span><span class="p">));</span>
+<span class="w">    </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="s">&quot;process&quot;</span><span class="p">][</span><span class="s">&quot;pid&quot;</span><span class="p">],</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">process</span><span class="p">::</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">body</span><span class="p">[</span><span class="s">&quot;resources&quot;</span><span class="p">][</span><span class="s">&quot;threads&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">.</span><span class="n">as_u64</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&quot;Linux has /proc&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="fm">assert!</span><span class="p">(</span>
+<span class="w">        </span><span class="n">threads</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&quot;the test thread and at least one Tokio worker: {threads}&quot;</span>
+<span class="w">    </span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// The names of the settings variables, never their values</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">variables</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">body</span><span class="p">[</span><span class="s">&quot;environment&quot;</span><span class="p">][</span><span class="s">&quot;variables&quot;</span><span class="p">].</span><span class="n">as_array</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="fm">assert!</span><span class="p">(</span><span class="n">variables</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">any</span><span class="p">(</span><span class="o">|</span><span class="n">name</span><span class="o">|</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;APP_DATABASE__URL&quot;</span><span class="p">));</span>
+<span class="w">    </span><span class="fm">assert!</span><span class="p">(</span><span class="o">!</span><span class="n">body</span><span class="p">.</span><span class="n">to_string</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="s">&quot;catalog:catalog@&quot;</span><span class="p">));</span>
+<span class="p">}</span></code></pre></figure>
+<p>When the database runs, start the service with <code>cargo run -q</code> in one terminal. Call the endpoint from a second terminal:</p>
+<figure class="code plain project"><figcaption><span class="code-title">second terminal: cargo run</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>localhost:3000/system<span class="w"> </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>json.tool
+<span class="go">{</span>
+<span class="go">    &quot;build&quot;: {</span>
+<span class="go">        &quot;version&quot;: &quot;0.1.0&quot;,</span>
+<span class="go">        &quot;os&quot;: &quot;linux&quot;,</span>
+<span class="go">        &quot;arch&quot;: &quot;x86_64&quot;,</span>
+<span class="go">        &quot;targetEnv&quot;: &quot;gnu&quot;,</span>
+<span class="go">        &quot;debugAssertions&quot;: true</span>
+<span class="go">    },</span>
+<span class="go">    &quot;system&quot;: {</span>
+<span class="go">        &quot;hostname&quot;: &quot;DESKTOP-ABC1234&quot;,</span>
+<span class="go">        &quot;osName&quot;: &quot;Ubuntu 26.04.1 LTS&quot;,</span>
+<span class="go">        &quot;kernel&quot;: {</span>
+<span class="go">            &quot;name&quot;: &quot;Linux&quot;,</span>
+<span class="go">            &quot;release&quot;: &quot;6.18.58.1-microsoft-standard-WSL2&quot;,</span>
+<span class="go">            &quot;version&quot;: &quot;#1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026&quot;</span>
+<span class="go">        },</span>
+<span class="go">        &quot;uptimeSeconds&quot;: 136233,</span>
+<span class="go">        &quot;loadAverage&quot;: [</span>
+<span class="go">            1.74,</span>
+<span class="go">            0.63,</span>
+<span class="go">            0.36</span>
+<span class="go">        ],</span>
+<span class="go">        &quot;inContainer&quot;: false</span>
+<span class="go">    },</span>
+<span class="go">    &quot;process&quot;: {</span>
+<span class="go">        &quot;pid&quot;: 1553860,</span>
+<span class="go">        &quot;parentPid&quot;: 1551666,</span>
+<span class="go">        &quot;uid&quot;: 1000,</span>
+<span class="go">        &quot;gid&quot;: 1000,</span>
+<span class="go">        &quot;executable&quot;: &quot;/home/you/code/shoes/target/debug/shoes&quot;,</span>
+<span class="go">        &quot;workingDirectory&quot;: &quot;/home/you/code/shoes&quot;,</span>
+<span class="go">        &quot;startedAt&quot;: &quot;2026-11-16T10:15:13.684406432Z&quot;,</span>
+<span class="go">        &quot;uptimeSeconds&quot;: 0</span>
+<span class="go">    },</span>
+<span class="go">    &quot;resources&quot;: {</span>
+<span class="go">        &quot;threads&quot;: 26,</span>
+<span class="go">        &quot;openFiles&quot;: 13,</span>
+<span class="go">        &quot;openFilesLimit&quot;: 1048576,</span>
+<span class="go">        &quot;residentMemoryBytes&quot;: 19210240,</span>
+<span class="go">        &quot;availableCpus&quot;: 24,</span>
+<span class="go">        &quot;memoryLimitBytes&quot;: null</span>
+<span class="go">    },</span>
+<span class="go">    &quot;environment&quot;: {</span>
+<span class="go">        &quot;name&quot;: &quot;local&quot;,</span>
+<span class="go">        &quot;variables&quot;: [</span>
+<span class="go">            &quot;APP_DATABASE__MAX_CONNECTIONS&quot;,</span>
+<span class="go">            &quot;APP_DATABASE__URL&quot;,</span>
+<span class="go">            &quot;APP_ENVIRONMENT&quot;,</span>
+<span class="go">            &quot;APP_REVIEWS__TIMEOUT_MS&quot;,</span>
+<span class="go">            &quot;APP_REVIEWS__URL&quot;,</span>
+<span class="go">            &quot;APP_SERVER__ADDR&quot;</span>
+<span class="go">        ]</span>
+<span class="go">    }</span>
+<span class="go">}</span></code></pre></figure>
+<p>Then start the image with a limit for CPUs and memory. It uses port 3001, so that it does not conflict with <code>cargo run</code>:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal: the container</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--rm<span class="w"> </span>--name<span class="w"> </span>shoes-limited<span class="w"> </span>--network<span class="w"> </span>catalog<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:3001:3000<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpus<span class="w"> </span><span class="m">2</span><span class="w"> </span>--memory<span class="w"> </span>256m<span class="w"> </span>--env-file<span class="w"> </span>~/shoes/staging.env<span class="w"> </span>shoes
+<span class="go">c7116bad3ecd1dcd29b7ccc8bb4aa91b86d53ea71c12e88778276ab5138cb728</span>
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>localhost:3001/system<span class="w"> </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>json.tool
+<span class="go">{</span>
+<span class="go">    &quot;build&quot;: {</span>
+<span class="go">        &quot;version&quot;: &quot;0.1.0&quot;,</span>
+<span class="go">        &quot;os&quot;: &quot;linux&quot;,</span>
+<span class="go">        &quot;arch&quot;: &quot;x86_64&quot;,</span>
+<span class="go">        &quot;targetEnv&quot;: &quot;gnu&quot;,</span>
+<span class="go">        &quot;debugAssertions&quot;: false</span>
+<span class="go">    },</span>
+<span class="go">    &quot;system&quot;: {</span>
+<span class="go">        &quot;hostname&quot;: &quot;c7116bad3ecd&quot;,</span>
+<span class="go">        &quot;osName&quot;: &quot;Distroless&quot;,</span>
+<span class="go">        &quot;kernel&quot;: {</span>
+<span class="go">            &quot;name&quot;: &quot;Linux&quot;,</span>
+<span class="go">            &quot;release&quot;: &quot;6.18.58.1-microsoft-standard-WSL2&quot;,</span>
+<span class="go">            &quot;version&quot;: &quot;#1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026&quot;</span>
+<span class="go">        },</span>
+<span class="go">        &quot;uptimeSeconds&quot;: 136287,</span>
+<span class="go">        &quot;loadAverage&quot;: [</span>
+<span class="go">            1.11,</span>
+<span class="go">            0.64,</span>
+<span class="go">            0.38</span>
+<span class="go">        ],</span>
+<span class="go">        &quot;inContainer&quot;: true</span>
+<span class="go">    },</span>
+<span class="go">    &quot;process&quot;: {</span>
+<span class="go">        &quot;pid&quot;: 1,</span>
+<span class="go">        &quot;parentPid&quot;: 0,</span>
+<span class="go">        &quot;uid&quot;: 65532,</span>
+<span class="go">        &quot;gid&quot;: 65532,</span>
+<span class="go">        &quot;executable&quot;: &quot;/usr/local/bin/shoes&quot;,</span>
+<span class="go">        &quot;workingDirectory&quot;: &quot;/home/nonroot&quot;,</span>
+<span class="go">        &quot;startedAt&quot;: &quot;2026-11-16T10:16:04.179275323Z&quot;,</span>
+<span class="go">        &quot;uptimeSeconds&quot;: 3</span>
+<span class="go">    },</span>
+<span class="go">    &quot;resources&quot;: {</span>
+<span class="go">        &quot;threads&quot;: 4,</span>
+<span class="go">        &quot;openFiles&quot;: 13,</span>
+<span class="go">        &quot;openFilesLimit&quot;: 1048576,</span>
+<span class="go">        &quot;residentMemoryBytes&quot;: 7401472,</span>
+<span class="go">        &quot;availableCpus&quot;: 2,</span>
+<span class="go">        &quot;memoryLimitBytes&quot;: 268435456</span>
+<span class="go">    },</span>
+<span class="go">    &quot;environment&quot;: {</span>
+<span class="go">        &quot;name&quot;: &quot;staging&quot;,</span>
+<span class="go">        &quot;variables&quot;: [</span>
+<span class="go">            &quot;APP_DATABASE__MAX_CONNECTIONS&quot;,</span>
+<span class="go">            &quot;APP_DATABASE__URL&quot;,</span>
+<span class="go">            &quot;APP_ENVIRONMENT&quot;,</span>
+<span class="go">            &quot;APP_REVIEWS__TIMEOUT_MS&quot;,</span>
+<span class="go">            &quot;APP_REVIEWS__URL&quot;,</span>
+<span class="go">            &quot;APP_SERVER__ADDR&quot;</span>
+<span class="go">        ]</span>
+<span class="go">    }</span>
+<span class="go">}</span>
+<span class="gp">$ </span>podman<span class="w"> </span>stop<span class="w"> </span>shoes-limited
+<span class="go">shoes-limited</span></code></pre></figure>
+<p>The two answers are different where the container has its own view:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Field</th><th><code>cargo run</code></th><th>Container</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><code>process.pid</code></td><td>1553860</td><td>1</td><td>PID namespace: the service is the first process of the container</td></tr>
+<tr><td><code>process.parentPid</code></td><td>1551666</td><td>0</td><td>the parent is outside the PID namespace, so the process cannot see it</td></tr>
+<tr><td><code>process.uid</code></td><td>1000</td><td>65532</td><td><code>USER nonroot:nonroot</code> in the Containerfile</td></tr>
+<tr><td><code>system.hostname</code></td><td>DESKTOP-ABC1234</td><td>c7116bad3ecd</td><td>UTS namespace: Podman uses the start of the container ID</td></tr>
+<tr><td><code>system.osName</code></td><td>Ubuntu 26.04.1 LTS</td><td>Distroless</td><td>mount namespace: <code>/etc/os-release</code> comes from the image</td></tr>
+<tr><td><code>system.kernel.release</code></td><td>6.18.58.1-…-WSL2</td><td>6.18.58.1-…-WSL2</td><td>all containers share the kernel of the host</td></tr>
+<tr><td><code>system.inContainer</code></td><td>false</td><td>true</td><td>Podman adds the file <code>/run/.containerenv</code></td></tr>
+<tr><td><code>build.debugAssertions</code></td><td>true</td><td>false</td><td>the <code>dev</code> profile against the <code>small</code> profile</td></tr>
+<tr><td><code>resources.availableCpus</code></td><td>24</td><td>2</td><td>the CPU limit of the cgroup, from <code>--cpus 2</code></td></tr>
+<tr><td><code>resources.threads</code></td><td>26</td><td>4</td><td>one Tokio worker for each available CPU, the main thread, and one blocking thread for the request</td></tr>
+<tr><td><code>resources.memoryLimitBytes</code></td><td>null</td><td>268435456</td><td>the memory limit of the cgroup, from <code>--memory 256m</code> (256 MiB)</td></tr>
+<tr><td><code>resources.residentMemoryBytes</code></td><td>19210240</td><td>7401472</td><td>the debug binary is larger. The service itself uses only some megabytes.</td></tr>
+</tbody></table></div>
+<aside class="callout c-os"><div class="callout-label">OS view</div><p><code>podman run</code> makes new namespaces for the process: PID, UTS (hostname), mount (file system), network, IPC and cgroup. The kernel stays the same, so <code>kernel.release</code> and the uptime of the system do not change. <code>--cpus 2</code> writes <code>200000 100000</code> to <code>cpu.max</code> of the cgroup of the container: 200 ms of CPU time in each period of 100 ms. <code>--memory 256m</code> writes 268435456 to <code>memory.max</code>. If the service uses more memory, the kernel stops it (OOM kill). In the container, <code>/proc/self/cgroup</code> contains <code>0::/</code>, because the cgroup namespace makes the cgroup of the container its root.</p></aside>
+<aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>Spring Boot Actuator gives similar data: <code>/actuator/info</code>, and <code>/actuator/metrics</code> with <code>process.uptime</code>, <code>jvm.threads.live</code> and <code>process.files.open</code>. From JDK 10, <code>Runtime.availableProcessors()</code> also follows the CPU limit of the cgroup, and the JVM reads <code>memory.max</code> to set the size of its heap (<code>-XX:MaxRAMPercentage</code>). A Rust binary has no heap size to configure.</p></aside>
 
 <h3 id="containers-webassembly">What about WebAssembly?</h3>
 <p>Rust also compiles to WebAssembly, and some providers offer WebAssembly on servers as a lighter alternative to containers. This service is not good for it:</p>
@@ -22280,7 +22803,7 @@ podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </sp
 <li><strong>A real deployment.</strong> On one Linux host, a Quadlet <code>.container</code> file lets systemd start and restart the container, with its variables in an <code>EnvironmentFile</code>. For Kubernetes, <code>podman kube generate shoes</code> writes a first manifest from the running container. The variables then come from a ConfigMap and a Secret.</li>
 <li><strong>Secrets as files.</strong> Kubernetes and <code>podman secret</code> can also mount a secret as a file. Then <code>podman inspect</code> and child processes cannot see it. To read the password from a file that a variable names, such as <code>APP_DATABASE__PASSWORD_FILE</code>, you make a small change to <code>settings.rs</code>.</li>
 <li><strong>Many replicas.</strong> Each instance runs <code>migrate!</code> at start-up. SQLx takes a PostgreSQL advisory lock during the migration, so only one instance applies the migrations, and the others wait. The rules for safe changes from Chapter 26 still apply, because old and new versions run at the same time during a rollout.</li>
-<li><strong>Health checks</strong>, a <strong>binary built on the host</strong> and a <strong>fully static image</strong>: see the practice tasks below.</li>
+<li><strong>Health checks</strong>, a <strong>binary built on the host</strong>, a <strong>fully static image</strong> and the <strong>CPU limit</strong>: see the practice tasks below.</li>
 </ul>
 
 <h3 id="containers-practice">Practice</h3>
@@ -22314,7 +22837,7 @@ podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </sp
 <span class="gi">+use serde_json::{Value, json};</span>
 <span class="w"> </span>use tower_http::trace::{DefaultOnResponse, TraceLayer};
 <span class="w"> </span>use tracing::{Level, Span, field};
-<span class="gu">@@ -25,5 +27,7 @@</span>
+<span class="gu">@@ -26,5 +28,7 @@</span>
 <span class="w"> </span>///   latency), including the 401s. Events logged while handling a request
 <span class="w"> </span>///   happen inside its span, so they carry its method and URI too, and,
 <span class="gd">-///   once the token check has filled it in, the user.</span>
@@ -22323,7 +22846,7 @@ podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </sp
 <span class="gi">+///   logged: a container runtime calls it every few seconds.</span>
 <span class="w"> </span>pub fn app(products: ProductService) -&gt; Router {
 <span class="w"> </span>    products::router(products)
-<span class="gu">@@ -35,4 +39,11 @@</span>
+<span class="gu">@@ -37,4 +41,11 @@</span>
 <span class="w"> </span>                .on_response(DefaultOnResponse::new().level(Level::INFO)),
 <span class="w"> </span>        )
 <span class="gi">+        .route(&quot;/health&quot;, get(health))</span>
@@ -22378,7 +22901,7 @@ podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </sp
 <span class="gi">+    assert_eq!(body, json!({ &quot;status&quot;: &quot;UP&quot; }));</span>
 <span class="gi">+}</span></code></pre><div class="out"><div class="out-label">Test output</div><pre>$ cargo test
      Running unittests src/lib.rs
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running unittests src/main.rs
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running tests/api.rs
@@ -22394,7 +22917,9 @@ test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/migrations.rs
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
      Running tests/reviews.rs
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+     Running tests/system.rs
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure><figure class="code plain project"><figcaption><span class="code-title">Containerfile (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/Containerfile</span>
 <span class="gi">+++ b/Containerfile</span>
@@ -22441,6 +22966,61 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="go">localhost/shoes 35 MB</span>
 <span class="gp">$ </span>file<span class="w"> </span>shoes<span class="w">     </span><span class="c1"># the binary, copied out with podman cp</span>
 <span class="go">shoes: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), static-pie linked, stripped</span></code></pre></figure><p>The image contains the binary (5.9 MB) and the certificate bundle, and the Bruno collection passes against it, also the reviews. If you remove the <code>ca-certificates.crt</code> line, the container stops at start-up with <code>No CA certificates were loaded from the system</code>.</p><p>The disadvantages: the memory allocator of musl is simple and can be much slower than the allocator of glibc with many threads. Thus, static Rust services frequently set a different global allocator, such as mimalloc, with <code>#[global_allocator]</code>. The image contains no tools for debugging (as with distroless) and no user names. It also has no time zone data, but the service logs in UTC and does not need it. A base image of 29 MB is rarely important, because registries and hosts share and keep layers. Select <code>scratch</code> when you want nothing in the image that you did not put there.</p></div></details></li>
+<li>Add the CPU limit of the cgroup to <code>resources</code> as <code>cpuLimit</code>. Read <code>cpu.max</code>, where <code>"150000 100000"</code> means 1.5 CPUs and <code>"max 100000"</code> means no limit. Start the container with <code>--cpus 1.5</code>. What does <code>availableCpus</code> show, and how many Tokio workers does the service start?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The <code>cgroup_file</code> helper already finds the files of the cgroup, so the new value needs one field, one line in <code>collect</code> and one small parser. The unit test examines the two forms of the file.</p><figure class="code plain project"><figcaption><span class="code-title">src/system.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/system.rs</span>
+<span class="gi">+++ b/src/system.rs</span>
+<span class="gu">@@ -121,4 +121,6 @@</span>
+<span class="w"> </span>    /// Follows the CPU limit of the cgroup
+<span class="w"> </span>    pub available_cpus: Option&lt;usize&gt;,
+<span class="gi">+    /// The CPU limit of the cgroup in CPUs, null if there is none</span>
+<span class="gi">+    pub cpu_limit: Option&lt;f64&gt;,</span>
+<span class="w"> </span>    /// The memory limit of the cgroup, null if there is none
+<span class="w"> </span>    pub memory_limit_bytes: Option&lt;u64&gt;,
+<span class="gu">@@ -176,4 +178,5 @@</span>
+<span class="w"> </span>                    .map(|kib| kib * 1024),
+<span class="w"> </span>                available_cpus: thread::available_parallelism().ok().map(|n| n.get()),
+<span class="gi">+                cpu_limit: cgroup_file(&quot;cpu.max&quot;).and_then(|text| cpu_limit(&amp;text)),</span>
+<span class="w"> </span>                // memory.max is &quot;max&quot; when there is no limit, which does not parse
+<span class="w"> </span>                memory_limit_bytes: cgroup_file(&quot;memory.max&quot;).and_then(|max| max.parse().ok()),
+<span class="gu">@@ -254,4 +257,12 @@</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gi">+/// cpu.max is &quot;quota period&quot; in microseconds: &quot;150000 100000&quot; allows 150 ms</span>
+<span class="gi">+/// of CPU time in each period of 100 ms, which is 1.5 CPUs. &quot;max 100000&quot;</span>
+<span class="gi">+/// means no limit, and &quot;max&quot; does not parse.</span>
+<span class="gi">+fn cpu_limit(text: &amp;str) -&gt; Option&lt;f64&gt; {</span>
+<span class="gi">+    let (quota, period) = text.split_once(&#x27; &#x27;)?;</span>
+<span class="gi">+    Some(quota.parse::&lt;f64&gt;().ok()? / period.parse::&lt;f64&gt;().ok()?)</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="w"> </span>/// The names of the APP_* variables, sorted. Never their values.
+<span class="w"> </span>fn settings_variables() -&gt; Vec&lt;String&gt; {
+<span class="gu">@@ -306,4 +317,10 @@</span>
+<span class="w"> </span>    }
+<span class="w"> </span>
+<span class="gi">+    #[test]</span>
+<span class="gi">+    fn reads_the_cpu_limit() {</span>
+<span class="gi">+        assert_eq!(cpu_limit(&quot;150000 100000&quot;), Some(1.5));</span>
+<span class="gi">+        assert_eq!(cpu_limit(&quot;max 100000&quot;), None);</span>
+<span class="gi">+    }</span>
+<span class="gi">+</span>
+<span class="w"> </span>    #[test]
+<span class="w"> </span>    fn lists_only_names() {</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>-q<span class="w"> </span>-t<span class="w"> </span>shoes<span class="w"> </span>.<span class="w"> </span>&gt;/dev/null
+<span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--rm<span class="w"> </span>--name<span class="w"> </span>shoes-limited<span class="w"> </span>--network<span class="w"> </span>catalog<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:3001:3000<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cpus<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span>--env-file<span class="w"> </span>~/shoes/staging.env<span class="w"> </span>shoes
+<span class="go">5fca250cd44c1d6df68105efea0131a1adcc1913a6c89de797faa5a06959700a</span>
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>localhost:3001/system<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import json, sys; print(json.dumps(json.load(sys.stdin)[&quot;resources&quot;], indent=4))&#39;</span>
+<span class="go">{</span>
+<span class="go">    &quot;threads&quot;: 3,</span>
+<span class="go">    &quot;openFiles&quot;: 13,</span>
+<span class="go">    &quot;openFilesLimit&quot;: 1048576,</span>
+<span class="go">    &quot;residentMemoryBytes&quot;: 7278592,</span>
+<span class="go">    &quot;availableCpus&quot;: 1,</span>
+<span class="go">    &quot;cpuLimit&quot;: 1.5,</span>
+<span class="go">    &quot;memoryLimitBytes&quot;: null</span>
+<span class="go">}</span>
+<span class="gp">$ </span>podman<span class="w"> </span>stop<span class="w"> </span>shoes-limited
+<span class="go">shoes-limited</span></code></pre></figure><p><strong>What <code>availableCpus</code> shows:</strong> 1, not 2. <code>available_parallelism</code> divides the quota by the period as integers, so it rounds 1.5 down, with a minimum of 1. Tokio starts one worker for each available CPU. Thus, the service has 3 threads: the main thread, one worker, and one blocking thread for the request. The cgroup still allows 1.5 CPUs of time, and the blocking threads can use the other half. Rounding down prevents more busy workers than the quota allows: if two workers each want a full CPU, the kernel stops both for part of each period (CPU throttling). The JVM rounds up: <code>Runtime.availableProcessors()</code> gives 2 for 1.5 CPUs.</p></div></details></li>
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#appa-shared-ownership"><span>Next · Appendix A</span>Single-Threaded Shared Ownership: Rc, Weak, Cell &amp; RefCell</a></footer></section>
