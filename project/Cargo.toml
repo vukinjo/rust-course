@@ -7,8 +7,9 @@ rust-version = "1.100"
 [dependencies]
 axum = "0.8.9"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "serde"] }
-config = { version = "0.15.27", default-features = false, features = ["toml"] }
+config = { version = "0.15.27", default-features = false }
 reqwest = { version = "0.13.5", features = ["json", "query"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "macros", "migrate", "chrono"] }
@@ -22,7 +23,7 @@ http-body-util = "0.1.5"
 tower = { version = "0.5", features = ["util"] }
 
 # A release build optimized for size: `cargo build --profile small` writes
-# target/small/shoes, about 5.6 MB instead of 15 MB for --release. The code is
+# target/small/shoes, about 5.7 MB instead of 15 MB for --release. The code is
 # somewhat slower than opt-level 3, which this I/O-bound service doesn't notice,
 # and crash backtraces lose their function names.
 [profile.small]

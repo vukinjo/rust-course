@@ -8,7 +8,7 @@ Kotlin for high-level features, and C for the low-level ones the JVM hides.
 
 ```
 course/              the course: one self-contained HTML page
-  index.html         27 chapters, appendices A–F, practice tasks with solutions (fonts embedded)
+  index.html         28 chapters, appendices A–F, practice tasks with solutions (fonts embedded)
 project/             the service the course builds, as it stands after the last chapter
   integration-tests/ a Bruno collection that tests the running service
 ```
@@ -26,7 +26,7 @@ Open `course/index.html` in a browser. It needs no server and no internet connec
 | IV. Abstraction | 11 Traits, 12 Generics, 13 Closures and iterators, 14 Collections |
 | V. Memory and concurrency | 15 Smart pointers, 16 Concurrency |
 | VI. Macros, testing and I/O | 17 Macros, 18 Testing and documentation, 19 Files, processes and networking |
-| VII. Building the service | 20 serde, 21 Tokio, 22 axum, 23 reqwest, 24 tracing, 25 PostgreSQL with SQLx, 26 Schema changes, 27 Authentication |
+| VII. Building the service | 20 serde, 21 Tokio, 22 axum, 23 reqwest, 24 tracing, 25 PostgreSQL with SQLx, 26 Schema changes, 27 Authentication, 28 Containers |
 | Appendices | A Rc and RefCell, B More concurrency, C Async from the standard library up, D Unsafe and FFI, E A key-value server, F Design patterns |
 
 - **One project throughout.** Alongside the short examples, you build one Cargo project, `shoes`, a catalog
@@ -36,14 +36,14 @@ Open `course/index.html` in a browser. It needs no server and no internet connec
   Examples marked *does not compile* show the real compiler error.
 - **Practice.** Each chapter ends with practice tasks. Every task has a solution, collapsed under it, that was
   compiled and run (or, for the project chapters, applied to that chapter's code and tested).
-- **Setup.** Rust 1.100, edition 2024, on Ubuntu 26.04 in WSL 2; Chapters 25–27 use PostgreSQL 18 in Podman.
+- **Setup.** Rust 1.100, edition 2024, on Ubuntu 26.04 in WSL 2; Chapters 25–28 use PostgreSQL 18 in Podman.
   Chapter 1 starts from a machine with no Rust installed. macOS notes are included, but weren't tested on a Mac.
 
 ## The project
 
-`project/` is the `shoes` service after Chapter 27: a REST API with axum, PostgreSQL through SQLx with
-migrations, a reqwest client for reviews, structured logs with tracing, layered settings, and a bearer-token
-check on every request. Its [README](project/README.md) explains how to start the database, run the service and
+`project/` is the `shoes` service after Chapter 28: a REST API with axum, PostgreSQL through SQLx with
+migrations, a reqwest client for reviews, structured logs with tracing, settings from environment variables, a bearer-token
+check on every request, and a Containerfile that packages it. Its [README](project/README.md) explains how to start the database, run the service and
 run the tests (41 Rust tests, and the Bruno collection's 39 requests).
 
 Quick start, once the PostgreSQL container from Chapter 25 is running:

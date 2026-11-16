@@ -90,9 +90,9 @@
   <rect x="200" y="154" width="160" height="120" rx="8" class="start"/>
   <circle cx="216" cy="172" r="10" class="badge"/><text x="216" y="176" class="badge-t">2</text>
   <text x="232" y="177" class="mb">Settings::load()</text>
-  <text x="212" y="200" class="m">config/base.toml</text>
-  <text x="212" y="216" class="m">config/{APP_ENV}.toml</text>
-  <text x="212" y="232"><tspan class="m">APP_*</tspan> env variables</text>
+  <text x="212" y="200"><tspan class="m">APP_*</tspan> env variables</text>
+  <text x="212" y="216">locally set by Cargo:</text>
+  <text x="212" y="232" class="m">.cargo/config.toml</text>
   <text x="212" y="248">→ Settings via serde</text>
 
   <!-- 3 -->

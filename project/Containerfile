@@ -1,0 +1,42 @@
+# The shoe service as a container image, built in two stages.
+#
+# Building takes the Cargo profile from the CARGO_PROFILE environment variable
+# (default: small). A bare --build-arg passes the variable into the build:
+#   CARGO_PROFILE=release podman build --build-arg CARGO_PROFILE -t shoes .
+#
+# The image holds no configuration. Running it takes every setting from
+# environment variables, APP_ENVIRONMENT included, for example from a file
+# kept outside the repository:
+#   podman run --env-file staging.env shoes
+# (see "Run it in a container" in README.md)
+
+# Stage 1: compile in the full Rust toolchain image.
+FROM docker.io/library/rust:1.100-slim-trixie AS build
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY .sqlx .sqlx
+COPY migrations migrations
+COPY src src
+# The query! macros read .sqlx/ instead of connecting to a database.
+ENV SQLX_OFFLINE=true
+# The Cargo profile to build: small (the default), release, dev, or any other
+# profile in Cargo.toml. Inside RUN it's an environment variable.
+ARG CARGO_PROFILE=small
+# The cache mounts keep downloaded crates and compiled dependencies between
+# builds, so a change in src/ recompiles only this crate. They aren't part of
+# the image, so the binary is copied out in the same step. Cargo writes the dev
+# profile to target/debug and every other profile to target/<profile>.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --locked --profile "$CARGO_PROFILE" \
+    && dir=$([ "$CARGO_PROFILE" = dev ] && echo debug || echo "$CARGO_PROFILE") \
+    && cp "target/$dir/shoes" /usr/local/bin/shoes
+
+# Stage 2: only the binary, on a base with glibc, libgcc and CA certificates
+# but no shell or package manager. No settings files and no APP_* variables:
+# those come from wherever the container runs.
+FROM gcr.io/distroless/cc-debian13:nonroot
+COPY --from=build /usr/local/bin/shoes /usr/local/bin/shoes
+USER nonroot:nonroot
+EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/shoes"]

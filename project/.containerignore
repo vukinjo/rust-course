@@ -1,0 +1,8 @@
+# The build context holds only what the Containerfile copies. Everything else,
+# above all target/ with its gigabytes, stays out.
+*
+!Cargo.toml
+!Cargo.lock
+!.sqlx
+!migrations
+!src

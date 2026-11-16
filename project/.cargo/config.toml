@@ -1,0 +1,14 @@
+# The settings for development on your own machine. Cargo sets these
+# variables for the processes it starts (`cargo run`, `cargo test`); the binary
+# itself never reads this file, and the container build doesn't copy it. A
+# variable that is already set wins, so one run can override a value:
+# APP_DATABASE__MAX_CONNECTIONS=3 cargo run
+[env]
+APP_ENVIRONMENT = "local"
+APP_SERVER__ADDR = "127.0.0.1:3000"
+# The Podman container from Chapter 25. Its password is not a secret, so it
+# can live in a committed file.
+APP_DATABASE__URL = "postgres://catalog:catalog@localhost:5432/shoes"
+APP_DATABASE__MAX_CONNECTIONS = "10"
+APP_REVIEWS__URL = "https://jsonplaceholder.typicode.com"
+APP_REVIEWS__TIMEOUT_MS = "5000"

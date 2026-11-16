@@ -1,4 +1,0 @@
-# Development on your own machine: the Podman container from Chapter 25.
-# Its password is not a secret, so it can live in a committed file.
-[database]
-url = "postgres://catalog:catalog@localhost:5432/shoes"

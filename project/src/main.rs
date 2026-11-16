@@ -3,6 +3,7 @@
 use std::env;
 use std::error::Error;
 
+use secrecy::ExposeSecret;
 use shoes::products::ProductService;
 use shoes::reviews::ReviewsClient;
 use shoes::settings::Settings;
@@ -52,7 +53,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     init_tracing();
     let settings = Settings::load()?;
     info!(
-        profile = settings.profile,
+        environment = settings.environment.as_str(),
         addr = %settings.server.addr,
         max_connections = settings.database.max_connections,
         "settings loaded"
@@ -60,7 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let pool = PgPoolOptions::new()
         .max_connections(settings.database.max_connections)
-        .connect(&settings.database.url)
+        .connect(settings.database.url.expose_secret())
         .await?;
     // Applies the files in migrations/ that this database hasn't run yet.
     // `migrate!` embeds them in the binary at compile time.

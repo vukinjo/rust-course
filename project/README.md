@@ -1,14 +1,14 @@
 # shoes
 
-The shoe catalog service as it stands at the end of the course (Chapter 27): a REST API with axum, PostgreSQL
-through SQLx with migrations, a reqwest client for reviews, tracing logs, layered settings, and bearer-token
-authentication.
+The shoe catalog service as it stands at the end of the course (Chapter 28): a REST API with axum, PostgreSQL
+through SQLx with migrations, a reqwest client for reviews, tracing logs, settings from environment variables, bearer-token
+authentication, and a Containerfile that packages it as a 35 MB image.
 
 ```
 src/main.rs            start-up: tracing, settings, pool, migrations, server, graceful shutdown
 src/lib.rs             app(): the router, the token check (route_layer) and the TraceLayer
 src/auth.rs            bearer-token middleware, AuthError (401), CurrentUser and GET /me
-src/settings.rs        config/base.toml → config/{APP_ENV}.toml → APP_<SECTION>__<KEY> env vars
+src/settings.rs        Settings from APP_* environment variables only (APP_ENVIRONMENT, APP_DATABASE__URL, …)
 src/error.rs           CatalogError and its HTTP responses
 src/reviews.rs         ReviewsClient (jsonplaceholder comments → reviews)
 src/products/          the products feature: model (DTOs), entity, mapper, validate, routes, service, service/repo
@@ -17,7 +17,10 @@ tests/                 API tests (#[sqlx::test]), authentication tests, reviews 
 .sqlx/                 saved query metadata, so it builds without a database (SQLX_OFFLINE=true)
 assets/                sample files for image uploads (two PNGs and a text file that is not an image)
 integration-tests/     Bruno collection: integration tests for the running service
+.cargo/config.toml     the local settings: Cargo sets them as APP_* variables for cargo run and cargo test
 docs/architecture.svg  diagram: start-up wiring, request flow, errors, comparison with Spring Boot
+Containerfile          two-stage image build: compile with --profile small, run on distroless (Chapter 28)
+.containerignore       keeps the build context to the files the build needs
 ```
 
 The diagram in [docs/architecture.svg](docs/architecture.svg) shows how `main.rs` builds each component and how a
@@ -38,14 +41,63 @@ podman exec catalog-db createdb -U catalog shoes   # once
 cargo run                                         # applies the migrations, listens on 127.0.0.1:3000
 ```
 
-If the container already exists, run `podman start catalog-db` instead. `config/local.toml` holds the database
-URL; override any setting with an environment variable, for example
-`APP_DATABASE__URL=postgres://… APP_SERVER__ADDR=0.0.0.0:8080 cargo run`. `RUST_LOG` and `LOG_FORMAT=json`
+If the container already exists, run `podman start catalog-db` instead. `RUST_LOG` and `LOG_FORMAT=json`
 control the logs.
 
+The service reads its settings only from environment variables, in every environment, and has no defaults in
+the code; a missing one stops the start-up with its name. On your machine, `.cargo/config.toml` holds every
+local value and Cargo sets them for `cargo run` and `cargo test` (the binary itself never reads that file). A
+variable that is already set wins, so one run can override a value, for example
+`APP_DATABASE__URL=postgres://… APP_SERVER__ADDR=0.0.0.0:8080 cargo run`. Running `target/debug/shoes`
+directly needs the variables set some other way.
+
+| Variable | Example |
+|---|---|
+| `APP_ENVIRONMENT` | `local`, `development`, `staging`, `production` or `release` |
+| `APP_SERVER__ADDR` | `0.0.0.0:3000` |
+| `APP_DATABASE__URL` | `postgres://user:password@host:5432/shoes` (a secret) |
+| `APP_DATABASE__MAX_CONNECTIONS` | `20` |
+| `APP_REVIEWS__URL` | `https://jsonplaceholder.typicode.com` |
+| `APP_REVIEWS__TIMEOUT_MS` | `5000` |
+
 For deployment, `cargo build --release` writes `target/release/shoes` (15 MB). `cargo build --profile small`
-writes `target/small/shoes` (5.6 MB), optimized for size; see `[profile.small]` in `Cargo.toml`. Either binary
-reads `config/` from the directory it starts in.
+writes `target/small/shoes` (5.7 MB), optimized for size; see `[profile.small]` in `Cargo.toml`. Neither
+needs anything but its environment variables.
+
+## Run it in a container
+
+The `Containerfile` compiles the binary in the Rust 1.100 image and copies only the binary into
+`gcr.io/distroless/cc-debian13:nonroot`. The image holds no configuration: every setting, `APP_ENVIRONMENT`
+included, comes from the container's environment, for example from an env file kept outside the repository
+(it contains the database password, so `chmod 600` it):
+
+```
+APP_ENVIRONMENT=staging
+APP_SERVER__ADDR=0.0.0.0:3000
+APP_DATABASE__URL=postgres://catalog:catalog@catalog-db:5432/shoes
+APP_DATABASE__MAX_CONNECTIONS=5
+APP_REVIEWS__URL=https://jsonplaceholder.typicode.com
+APP_REVIEWS__TIMEOUT_MS=5000
+```
+
+The build takes the Cargo profile from `CARGO_PROFILE` (default `small`): `CARGO_PROFILE=release podman build
+--build-arg CARGO_PROFILE -t shoes .`. Both containers have to be on one Podman network, so the database
+container is started on it (its data stays in the volume):
+
+```bash
+podman build -t shoes .                            # about a minute the first time; image 35 MB
+podman network create catalog                      # once
+podman stop catalog-db && podman rm catalog-db     # once, if it was started without --network
+podman run -d --name catalog-db --network catalog \
+  -e POSTGRES_USER=catalog -e POSTGRES_PASSWORD=catalog -e POSTGRES_DB=catalog \
+  -p 127.0.0.1:5432:5432 -v catalog-pgdata:/var/lib/postgresql \
+  --health-cmd 'pg_isready -U catalog -d catalog' --health-interval 5s \
+  docker.io/library/postgres:18
+podman run -d --name shoes --network catalog -p 127.0.0.1:3000:3000 \
+  --env-file ~/shoes/staging.env shoes
+```
+
+The container and `cargo run` both use port 3000, so stop one before starting the other (`podman stop shoes`).
 
 ## Test it
 

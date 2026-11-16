@@ -492,6 +492,7 @@ details.solution .solution-body figure.code { margin: 0.5em -0.3em 1em; }
 <li><a href="#ch25-axum-postgres" data-ch="ch25-axum-postgres"><span class="toc-num">25</span><span class="toc-title">Persisting the Catalog in PostgreSQL</span></a></li>
 <li><a href="#ch26-schema-changes" data-ch="ch26-schema-changes"><span class="toc-num">26</span><span class="toc-title">Changing the Schema</span></a></li>
 <li><a href="#ch27-authentication" data-ch="ch27-authentication"><span class="toc-num">27</span><span class="toc-title">Authentication with a Bearer Token</span></a></li>
+<li><a href="#ch28-containers" data-ch="ch28-containers"><span class="toc-num">28</span><span class="toc-title">Shipping the Service in a Container</span></a></li>
 <li class="toc-part"><span>Appendices</span> Rarely Needed in Services</li>
 <li><a href="#appa-shared-ownership" data-ch="appa-shared-ownership"><span class="toc-num">A</span><span class="toc-title">Single-Threaded Shared Ownership: Rc, Weak, Cell &amp; RefCell</span></a></li>
 <li><a href="#appb-more-concurrency" data-ch="appb-more-concurrency"><span class="toc-num">B</span><span class="toc-title">More Concurrency: Scoped Threads, Channels &amp; Condition Variables</span></a></li>
@@ -513,10 +514,10 @@ details.solution .solution-body figure.code { margin: 0.5em -0.3em 1em; }
         <li><b>std</b> only, plus serde, Tokio, axum, reqwest, tracing &amp; SQLx in Ch. 20–27</li>
         <li><b>Ubuntu</b> 26.04 · WSL 2</li>
         <li><b>macOS</b> notes included</li>
-        <li><b>27</b> chapters + 6 appendices</li>
+        <li><b>28</b> chapters + 6 appendices</li>
         <li><b>106</b> tested examples</li>
       </ul>
-      <p class="howto"><strong>How to use it.</strong> Alongside the short examples, you build one project, <code>shoes</code>, chapter by chapter: a catalog of shoes with variants and versions. Each <em>Project step</em> extends it and shows the files it changes, from one printed product in Chapter 1 to the web service that Chapters 22–27 build: a REST API with axum, an HTTP client with reqwest, logging with tracing, PostgreSQL with migrations, and bearer-token authentication. Every example is a complete program. The output shown under it was captured by compiling and running it with Rust 1.100.0 on Ubuntu 26.04 in WSL 2, and examples marked <em>does not compile</em> show the real compiler error. Chapters 20–27 use crates (serde, chrono, Tokio, axum, reqwest, tracing, SQLx). Every project step was checked with <code>cargo fmt</code>, Clippy and its tests, and its output, HTTP sessions and logs were captured from real runs, Chapters 25–27 against PostgreSQL 18 in Podman. <strong>Run in Playground</strong> opens the code in the official Rust Playground so you can edit and run it. You don't need anything installed to begin: Chapter 1 starts from a Linux machine with no Rust at all and installs the toolchain and the editor you'll use throughout, VS Code with the rust-analyzer extension. On a Mac, Chapter 1 has a macOS setup section, and later chapters flag the few commands that differ. Each chapter ends with practice tasks. Topics a typical web service rarely needs (<code>Rc</code> and <code>RefCell</code>, scoped threads and std channels, async internals, <code>unsafe</code> and FFI, a hand-built thread pool, design patterns) are in the appendices at the end.</p>
+      <p class="howto"><strong>How to use it.</strong> Alongside the short examples, you build one project, <code>shoes</code>, chapter by chapter: a catalog of shoes with variants and versions. Each <em>Project step</em> extends it and shows the files it changes, from one printed product in Chapter 1 to the web service that Chapters 22–28 build: a REST API with axum, an HTTP client with reqwest, logging with tracing, PostgreSQL with migrations, bearer-token authentication, and a container image to ship it in. Every example is a complete program. The output shown under it was captured by compiling and running it with Rust 1.100.0 on Ubuntu 26.04 in WSL 2, and examples marked <em>does not compile</em> show the real compiler error. Chapters 20–27 use crates (serde, chrono, Tokio, axum, reqwest, tracing, SQLx). Every project step was checked with <code>cargo fmt</code>, Clippy and its tests, and its output, HTTP sessions and logs were captured from real runs, Chapters 25–27 against PostgreSQL 18 in Podman. <strong>Run in Playground</strong> opens the code in the official Rust Playground so you can edit and run it. You don't need anything installed to begin: Chapter 1 starts from a Linux machine with no Rust at all and installs the toolchain and the editor you'll use throughout, VS Code with the rust-analyzer extension. On a Mac, Chapter 1 has a macOS setup section, and later chapters flag the few commands that differ. Each chapter ends with practice tasks. Topics a typical web service rarely needs (<code>Rc</code> and <code>RefCell</code>, scoped threads and std channels, async internals, <code>unsafe</code> and FFI, a hand-built thread pool, design patterns) are in the appendices at the end.</p>
     </header><div class="part-marker"><span>Part I</span>Foundations</div><section class="chapter" id="ch01-getting-started" aria-labelledby="ch01-getting-started-h"><header class="ch-head"><div class="ch-num">Chapter 01</div><h2 id="ch01-getting-started-h">Getting Started</h2><p class="lede">Installing Rust 1.100 from scratch in Ubuntu 26.04 on WSL, setting up VS Code with rust-analyzer, the mental model, the toolchain, and a map from the languages you know to Rust.</p></header><h3 id="getting-started-start-here-install-rust-from-scratch">Start here: install Rust from scratch</h3>
 <p>This course assumes you already have <strong>WSL 2 with Ubuntu 26.04</strong> on Windows, and <strong>no Rust installed</strong>. Open the Ubuntu terminal (Start menu → <em>Ubuntu 26.04</em>, or <code>wsl -d Ubuntu-26.04</code> in PowerShell). You need three things, all free:</p>
 <ol>
@@ -14635,7 +14636,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <li><strong>Authentication</strong>: Chapter 27 requires a bearer token on every request, checked by a middleware.</li>
 <li><strong>More middleware</strong> from <code>tower-http</code>: CORS, timeouts and compression, each added with <code>.layer(...)</code> like the body limit.</li>
 <li><strong>OpenAPI</strong> documentation generated from the DTOs, for example with <code>utoipa</code>.</li>
-<li><strong>Packaging</strong>: a multi-stage container build that compiles in a Rust image and copies the single binary into a small runtime image.</li>
+<li><strong>Packaging</strong>: Chapter 28 builds a container image in two stages, compiling in a Rust image and copying the single binary into a small runtime image.</li>
 </ul>
 
 <h3 id="axum-service-practice">Practice</h3>
@@ -17314,7 +17315,8 @@ podman run -d --name catalog-db <span class="se">\</span>
 <figure class="code plain"><figcaption><span class="code-title">~/.bashrc</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>export DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes</code></pre></figure>
 <p>Add the crate with the features the project uses, and install the SQLx command-line tool, which creates and applies migrations:</p>
 <figure class="code plain"><figcaption><span class="code-title">terminal</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>cargo<span class="w"> </span>add<span class="w"> </span>sqlx<span class="w"> </span>--features<span class="w"> </span>runtime-tokio,postgres,macros,migrate,chrono
-cargo<span class="w"> </span>add<span class="w"> </span>config<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>toml
+cargo<span class="w"> </span>add<span class="w"> </span>config<span class="w"> </span>--no-default-features
+cargo<span class="w"> </span>add<span class="w"> </span>secrecy<span class="w"> </span>--features<span class="w"> </span>serde
 cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class="w">   </span><span class="c1"># provides `sqlx` and `cargo sqlx`; takes a few minutes, once</span></code></pre></figure>
 <figure class="code plain project"><figcaption><span class="code-title">Cargo.toml</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="k">[package]</span>
 <span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shoes&quot;</span>
@@ -17325,8 +17327,9 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">[dependencies]</span>
 <span class="n">axum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.8.9&quot;</span>
 <span class="n">chrono</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.4.45&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;serde&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-<span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.15.27&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;toml&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.15.27&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 <span class="n">reqwest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.13.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;json&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;query&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<span class="n">secrecy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.10.3&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;serde&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 <span class="n">serde</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;derive&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 <span class="n">serde_json</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
 <span class="n">sqlx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.9.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;runtime-tokio&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;postgres&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;macros&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;migrate&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chrono&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
@@ -17338,7 +17341,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">[dev-dependencies]</span>
 <span class="n">http-body-util</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.5&quot;</span>
 <span class="n">tower</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;util&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span></code></pre></figure>
-<p>The <code>config</code> crate reads the service's settings from TOML files, per environment, the format <code>Cargo.toml</code> already uses; the section on settings below uses it.</p>
+<p>The <code>config</code> crate reads the service's settings from environment variables and hands them to <code>serde</code>; without its default features it doesn't pull in parsers for file formats the service never reads. <code>secrecy</code> wraps values such as the database password so that they don't end up in logs. The section on settings below uses both.</p>
 <p><code>runtime-tokio</code> runs SQLx on Tokio, <code>postgres</code> is the driver, <code>macros</code> provides <code>query!</code>, <code>migrate</code> provides migrations, and <code>chrono</code> maps PostgreSQL's <code>DATE</code> and <code>TIMESTAMPTZ</code> to chrono's types.</p>
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>The JVM equivalents: <code>PgPool</code> ≈ a HikariCP pool, SQLx migrations ≈ Flyway, the compile-time-checked macros ≈ SQLDelight, and <code>#[sqlx::test]</code> (later in this chapter) ≈ Testcontainers with a fresh database per test. Like jOOQ or Exposed, everything is typed, but you write plain SQL.</p></aside>
 
@@ -18030,64 +18033,97 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="gi">+            CatalogError::Reviews(_) | CatalogError::Database(_) =&gt; self.to_string(),</span>
 <span class="w"> </span>            _ =&gt; chain,
 <span class="w"> </span>        };</code></pre></figure></div></details>
-<h3 id="axum-postgres-settings-in-layers">Settings in layers, per environment</h3>
-<p>The service now has settings that differ between environments: the database URL, the size of the pool, the address to listen on. Until now, <code>Config::from_env</code> from step 19 read a few environment variables with defaults in the code. This step replaces it with layered settings, the Rust counterpart of Spring Boot's <code>application.properties</code> plus profile files:</p>
-<ol>
-<li><code>config/base.toml</code> holds the defaults for every environment.</li>
-<li><code>config/{APP_ENV}.toml</code> overrides them for the active environment. <code>APP_ENV</code> plays the part of <code>spring.profiles.active</code>; without it, the profile is <code>local</code>.</li>
-<li>Environment variables named <code>APP_&lt;SECTION&gt;__&lt;KEY&gt;</code> override both: <code>APP_DATABASE__URL</code> sets <code>database.url</code>, like <code>SPRING_DATASOURCE_URL</code> in Spring. The double underscore separates the levels, because keys such as <code>max_connections</code> contain single ones.</li>
-</ol>
-<figure class="code plain project"><figcaption><span class="code-title">config/base.toml</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># Settings for every environment. The file for the active environment</span>
-<span class="c1"># (APP_ENV, default &quot;local&quot;) overrides these, and environment variables</span>
-<span class="c1"># override both: APP_DATABASE__MAX_CONNECTIONS=30 sets database.max_connections.</span>
-<span class="k">[server]</span>
-<span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:3000&quot;</span>
-
-<span class="k">[database]</span>
-<span class="c1"># url: no default. Set it in an environment&#39;s file or with APP_DATABASE__URL.</span>
-<span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
-
-<span class="k">[reviews]</span>
-<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://jsonplaceholder.typicode.com&quot;</span>
-<span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5000</span></code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">config/local.toml</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># Development on your own machine: the Podman container from Chapter 25.</span>
-<span class="c1"># Its password is not a secret, so it can live in a committed file.</span>
-<span class="k">[database]</span>
-<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;postgres://catalog:catalog@localhost:5432/shoes&quot;</span></code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">config/production.toml</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># Production: listen on every interface (in a container, that&#39;s how traffic</span>
-<span class="c1"># gets in) and allow more connections. The database URL contains a real</span>
-<span class="c1"># password, so it never goes into a file: the platform sets APP_DATABASE__URL.</span>
-<span class="k">[server]</span>
-<span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:3000&quot;</span>
-
-<span class="k">[database]</span>
-<span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">20</span></code></pre></figure>
-<p>Secrets stay out of the files. The local database's password is a development convenience and can be committed; the production URL is never in a file, so production must set <code>APP_DATABASE__URL</code>, and a missing one stops the service at start-up.</p>
-<p><code>settings.rs</code> builds the layers with the <code>config</code> crate and deserializes the merged result into <code>Settings</code>, a plain struct deriving <code>Deserialize</code>. That struct is the counterpart of a <code>@ConfigurationProperties</code> class. Everything is checked when it's loaded: a missing key, a number that isn't one, an address that doesn't parse, or a profile without a file stops the start-up with an error naming the key or the file. The profile file is required on purpose: a misspelled <code>APP_ENV</code> would otherwise quietly run with the base settings only. The module is named <code>settings</code> rather than <code>config</code> so it doesn't shadow the crate of that name.</p>
-<p>As in step 19, the tests don't change the process environment (that's <code>unsafe</code> in edition 2024). <code>from_sources</code> takes the variables as a map, and <code>config</code>'s <code>Environment::source</code> reads that map instead of the real environment.</p>
-<figure class="code plain project"><figcaption><span class="code-title">src/settings.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! The service&#39;s settings, in layers, like Spring Boot&#39;s profiles:</span>
+<h3 id="axum-postgres-settings">Settings per environment</h3>
+<p>The service now has settings that differ between environments: the database URL, the size of the pool, the address to listen on. Until now, <code>Config::from_env</code> from step 19 read a few environment variables with defaults in the code. This step replaces it with settings that come only from environment variables, in every environment, with no defaults in the code:</p>
+<ul>
+<li><strong>One variable per value.</strong> A variable named <code>APP_&lt;SECTION&gt;__&lt;KEY&gt;</code> sets one value: <code>APP_DATABASE__URL</code> sets <code>database.url</code>, like <code>SPRING_DATASOURCE_URL</code> in Spring. The double underscore separates the levels, because keys such as <code>max_connections</code> contain single ones. <code>APP_ENVIRONMENT</code> says where the service runs: <code>local</code>, <code>development</code>, <code>staging</code>, <code>production</code> or <code>release</code>. A missing variable stops the service at start-up.</li>
+<li><strong>On your machine, Cargo sets them.</strong> The <code>[env]</code> table in <code>.cargo/config.toml</code> lists variables that Cargo sets for the processes it starts, <code>cargo run</code> and <code>cargo test</code> among them, so changing a setting locally means editing one file. A variable that is already set wins: <code>APP_DATABASE__MAX_CONNECTIONS=3 cargo run</code> changes one value for one run. Everywhere else, whatever starts the service sets them: the deployment's configuration, a secret store, a container's environment.</li>
+</ul>
+<p>Why not a file per environment, like Spring Boot's <code>application-{profile}.yml</code>? Files that the binary reads ship with it or its image: whoever has the image has every environment's settings, and changing a value takes a new build. Keeping configuration outside the binary is the twelve-factor rule "store config in the environment", and it's how platforms such as Kubernetes deliver configuration and secrets. This binary reads no file at all, not even locally, so there's one way to configure it and nothing a server could pick up by accident. <code>.cargo/config.toml</code> is read by Cargo, not by the service; its database password is for the container on your machine, not a secret, so the file can be committed.</p>
+<p>The catch: the values exist only for processes that Cargo starts. Running <code>target/debug/shoes</code> directly, or from an IDE that doesn't go through Cargo, needs the variables set some other way. A common alternative is the <code>dotenvy</code> crate, which loads a <code>.env</code> file into the environment at start-up. That puts file reading back into the binary, though, and a stray <code>.env</code> next to a deployed binary would be loaded.</p>
+<figure class="code plain project"><figcaption><span class="code-title">.cargo/config.toml</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># The settings for development on your own machine. Cargo sets these</span>
+<span class="c1"># variables for the processes it starts (`cargo run`, `cargo test`); the binary</span>
+<span class="c1"># itself never reads this file, and the container build doesn&#39;t copy it. A</span>
+<span class="c1"># variable that is already set wins, so one run can override a value:</span>
+<span class="c1"># APP_DATABASE__MAX_CONNECTIONS=3 cargo run</span>
+<span class="k">[env]</span>
+<span class="n">APP_ENVIRONMENT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;local&quot;</span>
+<span class="n">APP_SERVER__ADDR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:3000&quot;</span>
+<span class="c1"># The Podman container from Chapter 25. Its password is not a secret, so it</span>
+<span class="c1"># can live in a committed file.</span>
+<span class="n">APP_DATABASE__URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;postgres://catalog:catalog@localhost:5432/shoes&quot;</span>
+<span class="n">APP_DATABASE__MAX_CONNECTIONS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;10&quot;</span>
+<span class="n">APP_REVIEWS__URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://jsonplaceholder.typicode.com&quot;</span>
+<span class="n">APP_REVIEWS__TIMEOUT_MS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;5000&quot;</span></code></pre></figure>
+<p><code>settings.rs</code> hands the variables to the <code>config</code> crate and deserializes the result into <code>Settings</code>, a plain struct deriving <code>Deserialize</code>. That struct is the counterpart of a <code>@ConfigurationProperties</code> class. The module is named <code>settings</code> rather than <code>config</code> so it doesn't shadow the crate of that name.</p>
+<ul>
+<li><strong><code>Environment</code> is an enum</strong>, read from <code>APP_ENVIRONMENT</code> like any other value. <code>#[serde(try_from = "String")]</code> deserializes a string and passes it to <code>try_from</code>, which accepts the five names and nothing else, so a misspelled name stops the start-up instead of quietly becoming an environment of its own. For now the service only logs it, but code that has to behave differently somewhere has a type to <code>match</code> on.</li>
+<li><strong>Everything is checked when it's loaded</strong>: a missing key, a number that isn't one, an address that doesn't parse. The error names the key.</li>
+<li><strong>The database URL is a <code>SecretString</code></strong> from <code>secrecy</code>, because it contains the password. Its <code>Debug</code> output is <code>[REDACTED]</code>, so printing the settings, in a log line or by mistake, doesn't show the password. Reading the value takes <code>expose_secret()</code>, which is easy to find in a review: <code>main</code> calls it once, to connect.</li>
+</ul>
+<p>As in step 19, the tests don't change the process environment (that's <code>unsafe</code> in edition 2024). <code>from_vars</code> takes the variables as a map, and <code>config</code>'s <code>Environment::source</code> reads that map instead of the real environment. One test does read the real environment: under <code>cargo test</code> it holds the values from <code>.cargo/config.toml</code>, so the test fails when that file misses a key. The others check that every value comes from its variable, that a missing or mistyped one is an error naming the key, and that the password stays out of the debug output.</p>
+<figure class="code plain project"><figcaption><span class="code-title">src/settings.rs</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="sd">//! The service&#39;s settings, read from environment variables in every</span>
+<span class="sd">//! environment: `APP_ENVIRONMENT` and one variable `APP_&lt;SECTION&gt;__&lt;KEY&gt;` per</span>
+<span class="sd">//! value, for example `APP_DATABASE__URL`. The binary reads no file and has no</span>
+<span class="sd">//! defaults, so no configuration ships with it or with the container image.</span>
+<span class="sd">//! On your machine, `cargo run` and `cargo test` get the local values from</span>
+<span class="sd">//! `.cargo/config.toml`, which Cargo turns into variables.</span>
 <span class="sd">//!</span>
-<span class="sd">//! 1. `config/base.toml`: defaults for every environment;</span>
-<span class="sd">//! 2. `config/{APP_ENV}.toml`: the active environment, default `local`;</span>
-<span class="sd">//! 3. environment variables `APP_&lt;SECTION&gt;__&lt;KEY&gt;`, which override both,</span>
-<span class="sd">//!    for example `APP_DATABASE__URL`.</span>
-<span class="sd">//!</span>
-<span class="sd">//! The merged result is deserialized into `Settings`, so a missing or</span>
-<span class="sd">//! mistyped value stops the service at start-up, with the key&#39;s name.</span>
+<span class="sd">//! The values are deserialized into `Settings`, so a missing or mistyped value</span>
+<span class="sd">//! stops the service at start-up, with the key&#39;s name.</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">collections</span><span class="p">::</span><span class="n">HashMap</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">env</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">net</span><span class="p">::</span><span class="n">SocketAddr</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">path</span><span class="p">::</span><span class="n">Path</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="n">config</span><span class="p">::{</span><span class="n">ConfigError</span><span class="p">,</span><span class="w"> </span><span class="n">Environment</span><span class="p">,</span><span class="w"> </span><span class="n">File</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">config</span><span class="p">::</span><span class="n">ConfigError</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">secrecy</span><span class="p">::</span><span class="n">SecretString</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">serde</span><span class="p">::</span><span class="n">Deserialize</span><span class="p">;</span>
+
+<span class="sd">/// Where the service runs, from `APP_ENVIRONMENT`. It shows up in the logs.</span>
+<span class="cp">#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]</span>
+<span class="cp">#[serde(try_from = </span><span class="s">&quot;String&quot;</span><span class="cp">)]</span><span class="w"> </span><span class="c1">// deserialized as a string, then checked by try_from</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Environment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// `cargo run` on your machine</span>
+<span class="w">    </span><span class="n">Local</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Development</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Staging</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Production</span><span class="p">,</span>
+<span class="w">    </span><span class="n">Release</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">Environment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">as_str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">match</span><span class="w"> </span><span class="bp">self</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">Environment</span><span class="p">::</span><span class="n">Local</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;local&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">Environment</span><span class="p">::</span><span class="n">Development</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;development&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">Environment</span><span class="p">::</span><span class="n">Staging</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;staging&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">Environment</span><span class="p">::</span><span class="n">Production</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;production&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">Environment</span><span class="p">::</span><span class="n">Release</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;release&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="sd">/// A misspelled name is an error, not an environment of its own.</span>
+<span class="k">impl</span><span class="w"> </span><span class="n">TryFrom</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Environment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">try_from</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Environment</span><span class="p">,</span><span class="w"> </span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">match</span><span class="w"> </span><span class="n">name</span><span class="p">.</span><span class="n">as_str</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="s">&quot;local&quot;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">Environment</span><span class="p">::</span><span class="n">Local</span><span class="p">),</span>
+<span class="w">            </span><span class="s">&quot;development&quot;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">Environment</span><span class="p">::</span><span class="n">Development</span><span class="p">),</span>
+<span class="w">            </span><span class="s">&quot;staging&quot;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">Environment</span><span class="p">::</span><span class="n">Staging</span><span class="p">),</span>
+<span class="w">            </span><span class="s">&quot;production&quot;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">Environment</span><span class="p">::</span><span class="n">Production</span><span class="p">),</span>
+<span class="w">            </span><span class="s">&quot;release&quot;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">Environment</span><span class="p">::</span><span class="n">Release</span><span class="p">),</span>
+<span class="w">            </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span>
+<span class="w">                </span><span class="s">&quot;must be local, development, staging, production or release, got {name:?}&quot;</span>
+<span class="w">            </span><span class="p">)),</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
 
 <span class="cp">#[derive(Debug, Deserialize)]</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Settings</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="sd">/// The active environment&#39;s name; not read from the files</span>
-<span class="w">    </span><span class="cp">#[serde(skip)]</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">profile</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">environment</span><span class="p">:</span><span class="w"> </span><span class="nc">Environment</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">server</span><span class="p">:</span><span class="w"> </span><span class="nc">ServerSettings</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">database</span><span class="p">:</span><span class="w"> </span><span class="nc">DatabaseSettings</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">reviews</span><span class="p">:</span><span class="w"> </span><span class="nc">ReviewsSettings</span><span class="p">,</span>
@@ -18100,7 +18136,9 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="cp">#[derive(Debug, Deserialize)]</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DatabaseSettings</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">url</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Contains the password. `SecretString` prints as `[REDACTED]` in debug</span>
+<span class="w">    </span><span class="sd">/// output, and reading it takes an explicit `expose_secret()`.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">url</span><span class="p">:</span><span class="w"> </span><span class="nc">SecretString</span><span class="p">,</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">max_connections</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span>
 <span class="p">}</span>
 
@@ -18117,92 +18155,106 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="p">}</span>
 
 <span class="k">impl</span><span class="w"> </span><span class="n">Settings</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="sd">/// Reads `config/` in the current directory and the process environment.</span>
+<span class="w">    </span><span class="sd">/// Reads the process environment.</span>
 <span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">load</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Settings</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">env</span><span class="p">::</span><span class="n">var</span><span class="p">(</span><span class="s">&quot;APP_ENV&quot;</span><span class="p">).</span><span class="n">unwrap_or_else</span><span class="p">(</span><span class="o">|</span><span class="n">_</span><span class="o">|</span><span class="w"> </span><span class="s">&quot;local&quot;</span><span class="p">.</span><span class="n">to_string</span><span class="p">());</span>
-<span class="w">        </span><span class="n">Settings</span><span class="p">::</span><span class="n">from_sources</span><span class="p">(</span><span class="n">Path</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;config&quot;</span><span class="p">),</span><span class="w"> </span><span class="o">&amp;</span><span class="n">profile</span><span class="p">,</span><span class="w"> </span><span class="nb">None</span><span class="p">)</span>
+<span class="w">        </span><span class="n">Settings</span><span class="p">::</span><span class="n">from_vars</span><span class="p">(</span><span class="nb">None</span><span class="p">)</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="sd">/// The layers, from a directory of files and a profile name. `vars` stands</span>
-<span class="w">    </span><span class="sd">/// in for the environment variables in tests (None reads the real ones),</span>
-<span class="w">    </span><span class="sd">/// because changing the process environment is `unsafe` in edition 2024.</span>
-<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">from_sources</span><span class="p">(</span>
-<span class="w">        </span><span class="n">dir</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Path</span><span class="p">,</span>
-<span class="w">        </span><span class="n">profile</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span>
-<span class="w">        </span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">HashMap</span><span class="o">&lt;</span><span class="nb">String</span><span class="p">,</span><span class="w"> </span><span class="nb">String</span><span class="o">&gt;&gt;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Settings</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="o">|</span><span class="w"> </span><span class="n">File</span><span class="p">::</span><span class="n">with_name</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dir</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span><span class="p">).</span><span class="n">to_string_lossy</span><span class="p">());</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">settings</span><span class="p">:</span><span class="w"> </span><span class="nc">Settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">config</span><span class="p">::</span><span class="n">Config</span><span class="p">::</span><span class="n">builder</span><span class="p">()</span>
-<span class="w">            </span><span class="p">.</span><span class="n">add_source</span><span class="p">(</span><span class="n">file</span><span class="p">(</span><span class="s">&quot;base&quot;</span><span class="p">))</span>
-<span class="w">            </span><span class="c1">// Required: a misspelled APP_ENV is an error, not silently &quot;base only&quot;</span>
-<span class="w">            </span><span class="p">.</span><span class="n">add_source</span><span class="p">(</span><span class="n">file</span><span class="p">(</span><span class="n">profile</span><span class="p">))</span>
+<span class="w">    </span><span class="sd">/// The settings from the variables. `vars` stands in for the process</span>
+<span class="w">    </span><span class="sd">/// environment in tests (None reads the real one), because changing the</span>
+<span class="w">    </span><span class="sd">/// process environment is `unsafe` in edition 2024.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">from_vars</span><span class="p">(</span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">HashMap</span><span class="o">&lt;</span><span class="nb">String</span><span class="p">,</span><span class="w"> </span><span class="nb">String</span><span class="o">&gt;&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Settings</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">config</span><span class="p">::</span><span class="n">Config</span><span class="p">::</span><span class="n">builder</span><span class="p">()</span>
 <span class="w">            </span><span class="p">.</span><span class="n">add_source</span><span class="p">(</span>
-<span class="w">                </span><span class="n">Environment</span><span class="p">::</span><span class="n">with_prefix</span><span class="p">(</span><span class="s">&quot;APP&quot;</span><span class="p">)</span>
+<span class="w">                </span><span class="n">config</span><span class="p">::</span><span class="n">Environment</span><span class="p">::</span><span class="n">with_prefix</span><span class="p">(</span><span class="s">&quot;APP&quot;</span><span class="p">)</span>
 <span class="w">                    </span><span class="p">.</span><span class="n">prefix_separator</span><span class="p">(</span><span class="s">&quot;_&quot;</span><span class="p">)</span><span class="w"> </span><span class="c1">// APP_ then the key</span>
 <span class="w">                    </span><span class="p">.</span><span class="n">separator</span><span class="p">(</span><span class="s">&quot;__&quot;</span><span class="p">)</span><span class="w"> </span><span class="c1">// __ between levels: DATABASE__URL is database.url</span>
 <span class="w">                    </span><span class="p">.</span><span class="n">source</span><span class="p">(</span><span class="n">vars</span><span class="p">),</span>
 <span class="w">            </span><span class="p">)</span>
 <span class="w">            </span><span class="p">.</span><span class="n">build</span><span class="p">()</span><span class="o">?</span>
-<span class="w">            </span><span class="p">.</span><span class="n">try_deserialize</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-<span class="w">        </span><span class="n">settings</span><span class="p">.</span><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">profile</span><span class="p">.</span><span class="n">to_string</span><span class="p">();</span>
-<span class="w">        </span><span class="nb">Ok</span><span class="p">(</span><span class="n">settings</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="n">try_deserialize</span><span class="p">()</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 
 <span class="cp">#[cfg(test)]</span>
 <span class="k">mod</span><span class="w"> </span><span class="nn">tests</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="n">secrecy</span><span class="p">::</span><span class="n">ExposeSecret</span><span class="p">;</span>
+
 <span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
 
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">profile</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[(</span><span class="o">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kt">str</span><span class="p">)])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Settings</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[(</span><span class="o">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kt">str</span><span class="p">)])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Settings</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">vars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vars</span>
 <span class="w">            </span><span class="p">.</span><span class="n">iter</span><span class="p">()</span>
 <span class="w">            </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p">)</span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">()))</span>
 <span class="w">            </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
-<span class="w">        </span><span class="n">Settings</span><span class="p">::</span><span class="n">from_sources</span><span class="p">(</span><span class="n">Path</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;config&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">profile</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">vars</span><span class="p">))</span>
+<span class="w">        </span><span class="n">Settings</span><span class="p">::</span><span class="n">from_vars</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">vars</span><span class="p">))</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="sd">/// Everything an environment has to set</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">PRODUCTION</span><span class="p">:</span><span class="w"> </span><span class="p">[(</span><span class="o">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kt">str</span><span class="p">);</span><span class="w"> </span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_ENVIRONMENT&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;production&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_SERVER__ADDR&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;0.0.0.0:3000&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_DATABASE__URL&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;postgres://u:secret@db:5432/shoes&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_DATABASE__MAX_CONNECTIONS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;20&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_REVIEWS__URL&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;https://reviews.example.com&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="p">(</span><span class="s">&quot;APP_REVIEWS__TIMEOUT_MS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;2000&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="p">];</span>
+
+<span class="w">    </span><span class="sd">/// Replaces or adds one variable</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">with</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="p">(</span><span class="o">&amp;&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;&#39;</span><span class="na">a</span><span class="w"> </span><span class="kt">str</span><span class="p">)</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PRODUCTION</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="o">|</span><span class="w"> </span><span class="o">*</span><span class="n">k</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">key</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
+<span class="w">        </span><span class="n">vars</span><span class="p">.</span><span class="n">push</span><span class="p">((</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">));</span>
+<span class="w">        </span><span class="n">vars</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="cp">#[test]</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">local_needs_no_environment_variables</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="s">&quot;local&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[]).</span><span class="n">unwrap</span><span class="p">();</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">server</span><span class="p">.</span><span class="n">addr</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;127.0.0.1:3000&quot;</span><span class="p">);</span>
-<span class="w">        </span><span class="fm">assert!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">url</span><span class="p">.</span><span class="n">ends_with</span><span class="p">(</span><span class="s">&quot;@localhost:5432/shoes&quot;</span><span class="p">));</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">max_connections</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">reviews</span><span class="p">.</span><span class="n">timeout</span><span class="p">(),</span><span class="w"> </span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">every_value_comes_from_a_variable</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">PRODUCTION</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">environment</span><span class="p">,</span><span class="w"> </span><span class="n">Environment</span><span class="p">::</span><span class="n">Production</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">server</span><span class="p">.</span><span class="n">addr</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;0.0.0.0:3000&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">max_connections</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">reviews</span><span class="p">.</span><span class="n">url</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;https://reviews.example.com&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">reviews</span><span class="p">.</span><span class="n">timeout</span><span class="p">(),</span><span class="w"> </span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
+<span class="w">            </span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">url</span><span class="p">.</span><span class="n">expose_secret</span><span class="p">(),</span>
+<span class="w">            </span><span class="s">&quot;postgres://u:secret@db:5432/shoes&quot;</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// Debug output, as in a log line, doesn&#39;t show the password</span>
+<span class="w">        </span><span class="fm">assert!</span><span class="p">(</span><span class="o">!</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{settings:?}&quot;</span><span class="p">).</span><span class="n">contains</span><span class="p">(</span><span class="s">&quot;secret@&quot;</span><span class="p">));</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="cp">#[test]</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">production_overrides_base_and_variables_override_both</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">vars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<span class="w">            </span><span class="p">(</span><span class="s">&quot;APP_DATABASE__URL&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;postgres://u:p@db:5432/shoes&quot;</span><span class="p">),</span>
-<span class="w">            </span><span class="p">(</span><span class="s">&quot;APP_DATABASE__MAX_CONNECTIONS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;30&quot;</span><span class="p">),</span>
-<span class="w">        </span><span class="p">];</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="s">&quot;production&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">vars</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;production&quot;</span><span class="p">);</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">server</span><span class="p">.</span><span class="n">addr</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;0.0.0.0:3000&quot;</span><span class="p">);</span><span class="w"> </span><span class="c1">// from production.toml</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">max_connections</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">);</span><span class="w"> </span><span class="c1">// from the variable</span>
-<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">reviews</span><span class="p">.</span><span class="n">url</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;https://jsonplaceholder.typicode.com&quot;</span><span class="p">);</span><span class="w"> </span><span class="c1">// from base.toml</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">cargo_config_sets_every_local_value</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// The real process environment: under `cargo test` it holds the</span>
+<span class="w">        </span><span class="c1">// values from .cargo/config.toml, unless the shell overrides them</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Settings</span><span class="p">::</span><span class="n">load</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">environment</span><span class="p">,</span><span class="w"> </span><span class="n">Environment</span><span class="p">::</span><span class="n">Local</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="cp">#[test]</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">production_without_a_database_url_is_an_error</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="s">&quot;production&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[]).</span><span class="n">unwrap_err</span><span class="p">();</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">a_missing_variable_is_an_error</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">vars</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PRODUCTION</span>
+<span class="w">            </span><span class="p">.</span><span class="n">into_iter</span><span class="p">()</span>
+<span class="w">            </span><span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="o">|</span><span class="w"> </span><span class="o">*</span><span class="n">key</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&quot;APP_REVIEWS__URL&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vars</span><span class="p">).</span><span class="n">unwrap_err</span><span class="p">();</span>
 <span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
 <span class="w">            </span><span class="n">error</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span>
-<span class="w">            </span><span class="s">r#&quot;missing configuration field &quot;database.url&quot;&quot;#</span>
+<span class="w">            </span><span class="s">r#&quot;missing configuration field &quot;reviews.url&quot;&quot;#</span>
 <span class="w">        </span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="cp">#[test]</span>
-<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">errors_name_the_key_or_the_file</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="s">&quot;local&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[(</span><span class="s">&quot;APP_DATABASE__MAX_CONNECTIONS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;many&quot;</span><span class="p">)]).</span><span class="n">unwrap_err</span><span class="p">();</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">errors_name_the_key</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">with</span><span class="p">(</span><span class="s">&quot;APP_DATABASE__MAX_CONNECTIONS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;many&quot;</span><span class="p">)).</span><span class="n">unwrap_err</span><span class="p">();</span>
 <span class="w">        </span><span class="fm">assert!</span><span class="p">(</span>
 <span class="w">            </span><span class="n">error</span><span class="p">.</span><span class="n">to_string</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="s">&quot;database.max_connections&quot;</span><span class="p">),</span>
 <span class="w">            </span><span class="s">&quot;{error}&quot;</span>
 <span class="w">        </span><span class="p">);</span>
-<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="s">&quot;staging&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[]).</span><span class="n">unwrap_err</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">with</span><span class="p">(</span><span class="s">&quot;APP_ENVIRONMENT&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;prodution&quot;</span><span class="p">)).</span><span class="n">unwrap_err</span><span class="p">();</span>
 <span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span>
 <span class="w">            </span><span class="n">error</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span>
-<span class="w">            </span><span class="s">r#&quot;configuration file &quot;config/staging&quot; not found&quot;#</span>
+<span class="w">            </span><span class="s">r#&quot;must be local, development, staging, production or release, got &quot;prodution&quot; for key `environment`&quot;#</span>
 <span class="w">        </span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span></code></pre></figure>
@@ -18215,6 +18267,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">env</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">error</span><span class="p">::</span><span class="n">Error</span><span class="p">;</span>
 
+<span class="k">use</span><span class="w"> </span><span class="n">secrecy</span><span class="p">::</span><span class="n">ExposeSecret</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">shoes</span><span class="p">::</span><span class="n">products</span><span class="p">::</span><span class="n">ProductService</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">shoes</span><span class="p">::</span><span class="n">reviews</span><span class="p">::</span><span class="n">ReviewsClient</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">shoes</span><span class="p">::</span><span class="n">settings</span><span class="p">::</span><span class="n">Settings</span><span class="p">;</span>
@@ -18264,7 +18317,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <span class="w">    </span><span class="n">init_tracing</span><span class="p">();</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Settings</span><span class="p">::</span><span class="n">load</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
 <span class="w">    </span><span class="n">info</span><span class="o">!</span><span class="p">(</span>
-<span class="w">        </span><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">settings</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span>
+<span class="w">        </span><span class="n">environment</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">settings</span><span class="p">.</span><span class="n">environment</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span>
 <span class="w">        </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">%</span><span class="n">settings</span><span class="p">.</span><span class="n">server</span><span class="p">.</span><span class="n">addr</span><span class="p">,</span>
 <span class="w">        </span><span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">max_connections</span><span class="p">,</span>
 <span class="w">        </span><span class="s">&quot;settings loaded&quot;</span>
@@ -18272,7 +18325,7 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PgPoolOptions</span><span class="p">::</span><span class="n">new</span><span class="p">()</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_connections</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">max_connections</span><span class="p">)</span>
-<span class="w">        </span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="o">&amp;</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">url</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">settings</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">url</span><span class="p">.</span><span class="n">expose_secret</span><span class="p">())</span>
 <span class="w">        </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">    </span><span class="c1">// Applies the files in migrations/ that this database hasn&#39;t run yet.</span>
 <span class="w">    </span><span class="c1">// `migrate!` embeds them in the binary at compile time.</span>
@@ -18321,12 +18374,12 @@ cargo<span class="w"> </span>install<span class="w"> </span>sqlx-cli<span class=
 <p><code>sqlx::migrate!()</code> embeds the files in <code>migrations/</code> into the binary at compile time, so the deployed binary carries its schema with it. <code>run(&amp;pool)</code> applies the ones this database hasn't run yet; when there are none, it's a quick check.</p>
 
 <h3 id="axum-postgres-run-it">Run it</h3>
-<p>Two misconfigured starts first: the production profile without a database URL, and a profile that has no file. Both stop before connecting to anything:</p>
-<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ APP_ENV=production cargo run -q
-Error: missing configuration field &quot;database.url&quot;
-$ APP_ENV=staging cargo run -q
-Error: configuration file &quot;config/staging&quot; not found</code></pre></figure>
-<p>With the container running, <code>cargo run -q</code> starts the service with the <code>local</code> profile; no environment variables are needed. The demo started from an empty <code>shoes</code> database and restarted the service halfway. At the end, it restarted once more with the production profile, the way a deployment would run it:</p>
+<p>Two misconfigured starts first. <code>cargo run</code> would fill in every variable that isn't set, so the first one runs the binary directly, as a deployment does, without any variables. The second misspells the environment. Both stop before connecting to anything:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ cargo build -q &amp;&amp; target/debug/shoes
+Error: missing configuration field &quot;environment&quot;
+$ APP_ENVIRONMENT=prodution cargo run -q
+Error: must be local, development, staging, production or release, got &quot;prodution&quot; for key `environment`</code></pre></figure>
+<p>With the container running, <code>cargo run -q</code> starts the service in the <code>local</code> environment, with the variables from <code>.cargo/config.toml</code>. The demo started from an empty <code>shoes</code> database and restarted the service halfway. At the end, it restarted once more as production, with every setting in a variable, the way a deployment would run it:</p>
 <figure class="code plain project"><figcaption><span class="code-title">second terminal: requests</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ curl -s -i localhost:3000/products -H &#39;content-type: application/json&#39; -d @new-product.json
 HTTP/1.1 201 Created
 content-type: application/json
@@ -18460,11 +18513,14 @@ $ podman exec catalog-db psql -U catalog -d shoes -c &#39;SELECT (SELECT count(*
         0 |     0
 (1 row)
 
-# Ctrl+C in the server&#39;s terminal, then: APP_ENV=production APP_DATABASE__URL=postgres://catalog:catalog@localhost:5432/shoes cargo run -q
+# Ctrl+C in the server&#39;s terminal, then:
+#   APP_ENVIRONMENT=production APP_SERVER__ADDR=0.0.0.0:3000 \
+#   APP_DATABASE__URL=postgres://catalog:catalog@localhost:5432/shoes APP_DATABASE__MAX_CONNECTIONS=20 \
+#   APP_REVIEWS__URL=https://jsonplaceholder.typicode.com APP_REVIEWS__TIMEOUT_MS=5000 cargo run -q
 
 $ curl -s -o /dev/null -w &#39;%{http_code}\n&#39; localhost:3000/products
 200</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">first terminal: the server&#x27;s log (stderr)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>2026-11-15T13:12:29.845464Z  INFO shoes: settings loaded profile=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
+<figure class="code plain project"><figcaption><span class="code-title">first terminal: the server&#x27;s log (stderr)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>2026-11-15T13:12:29.845464Z  INFO shoes: settings loaded environment=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
 2026-11-15T13:12:29.891006Z  INFO shoes: database ready
 2026-11-15T13:12:29.904870Z  INFO shoes: listening on http://127.0.0.1:3000
 2026-11-15T13:12:29.952828Z  INFO request{method=POST uri=/products version=HTTP/1.1}: shoes::products::service: product created id=1 name=Road Racer
@@ -18474,14 +18530,14 @@ $ curl -s -o /dev/null -w &#39;%{http_code}\n&#39; localhost:3000/products
 2026-11-15T13:12:29.975434Z  INFO request{method=PUT uri=/products/1 version=HTTP/1.1}: shoes::products::service: product updated id=1 variants=2
 2026-11-15T13:12:29.975561Z  INFO request{method=PUT uri=/products/1 version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=6 ms status=200
 2026-11-15T13:12:30.007146Z  INFO shoes: stopped
-2026-11-15T13:12:30.136325Z  INFO shoes: settings loaded profile=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
+2026-11-15T13:12:30.136325Z  INFO shoes: settings loaded environment=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
 2026-11-15T13:12:30.169531Z  INFO shoes: database ready
 2026-11-15T13:12:30.183105Z  INFO shoes: listening on http://127.0.0.1:3000
 2026-11-15T13:12:30.221960Z  INFO request{method=GET uri=/products?minPrice=15000 version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=4 ms status=200
 2026-11-15T13:12:31.178943Z  INFO request{method=DELETE uri=/products/1 version=HTTP/1.1}: shoes::products::service: product deleted id=1
 2026-11-15T13:12:31.179018Z  INFO request{method=DELETE uri=/products/1 version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=2 ms status=204
 2026-11-15T13:12:32.129663Z  INFO shoes: stopped
-2026-11-15T13:12:32.257454Z  INFO shoes: settings loaded profile=&quot;production&quot; addr=0.0.0.0:3000 max_connections=20
+2026-11-15T13:12:32.257454Z  INFO shoes: settings loaded environment=&quot;production&quot; addr=0.0.0.0:3000 max_connections=20
 2026-11-15T13:12:32.291406Z  INFO shoes: database ready
 2026-11-15T13:12:32.306579Z  INFO shoes: listening on http://0.0.0.0:3000
 2026-11-15T13:12:32.344486Z  INFO request{method=GET uri=/products version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=5 ms status=200
@@ -18492,7 +18548,7 @@ $ curl -s -o /dev/null -w &#39;%{http_code}\n&#39; localhost:3000/products
 <li><code>RR-VOLT-42</code> kept id 2 through the update, while the new <code>RR-VOLT-43</code> got id 4, not 3: the upsert of <code>RR-VOLT-42</code> took 3 from the sequence.</li>
 <li><code>version_variants</code> shows the many-to-many relation: <code>RR-VOLT-42</code> is in both versions, and version 2 has two variants.</li>
 <li>Deleting the product left no variants or links behind.</li>
-<li>The log's first line shows the profile and the values that came out of the layers: <code>127.0.0.1:3000</code> and 10 connections locally, <code>0.0.0.0:3000</code> and 20 connections in production, with the URL from <code>APP_DATABASE__URL</code>.</li>
+<li>The log's first line shows the environment and the values it loaded: <code>127.0.0.1:3000</code> and 10 connections from <code>.cargo/config.toml</code>, <code>0.0.0.0:3000</code> and 20 connections from the variables set on the command line, which win over Cargo's. The URL isn't logged: it contains the password.</li>
 </ul>
 
 <h3 id="axum-postgres-tests-against-a-real-database">Tests against a real database</h3>
@@ -18892,10 +18948,10 @@ test products::model::tests::unknown_fields_are_rejected ... ok
 test products::validate::tests::a_valid_product_passes ... ok
 test products::validate::tests::each_rule_has_its_own_error ... ok
 test products::validate::tests::find_duplicate_returns_the_second_occurrence ... ok
-test settings::tests::local_needs_no_environment_variables ... ok
-test settings::tests::production_without_a_database_url_is_an_error ... ok
-test settings::tests::errors_name_the_key_or_the_file ... ok
-test settings::tests::production_overrides_base_and_variables_override_both ... ok
+test settings::tests::cargo_config_sets_every_local_value ... ok
+test settings::tests::a_missing_variable_is_an_error ... ok
+test settings::tests::errors_name_the_key ... ok
+test settings::tests::every_value_comes_from_a_variable ... ok
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
@@ -18936,7 +18992,7 @@ cargo<span class="w"> </span>sqlx<span class="w"> </span>prepare<span class="w">
 <li><strong>Pool size.</strong> PostgreSQL allows 100 connections by default, shared by every instance of every service. Ten per instance, as here, is a reasonable start. Size the pool from measurements, not guesses.</li>
 <li><strong>Credentials.</strong> The <code>catalog</code>/<code>catalog</code> password is for local development only. In production, the platform sets <code>APP_DATABASE__URL</code> from a secret store, and enable a TLS feature of <code>sqlx</code> (for example <code>tls-rustls</code>) when the database isn't on the same host.</li>
 <li><strong>Files in the database.</strong> <code>BYTEA</code> is simple and transactional: an image is deleted with its product, and backed up with everything else. It doesn't scale to large files or many of them: every listing here loads every image, and backups grow with the images. The usual next step is object storage (S3 or a compatible store such as MinIO), with only the object's key in the row, and listings that don't select the binary columns at all.</li>
-<li><strong>Settings.</strong> Only the files for environments you actually run belong in <code>config/</code>, and only values that aren't secret. Log the settings at start-up, as <code>main</code> does, but never the database URL: it contains the password.</li>
+<li><strong>Settings.</strong> Outside your machine, the platform sets every variable: plain values from the deployment's configuration, secrets such as the database URL from a secret store. Log the settings at start-up, as <code>main</code> does, but never the database URL; <code>SecretString</code> makes that the default.</li>
 <li><strong>Migrations in production</strong> are the subject of Chapter 26.</li>
 <li><strong>Upgrading to PostgreSQL 19</strong> (generally available from November 19, 2026). Because the data directory is version-specific, a <code>postgres:19</code> container on the same volume would initialize a new, empty cluster next to the old one. Instead, dump and restore:</li>
 </ul>
@@ -19559,48 +19615,20 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</code></pre></figure>
 <p><strong>Which is simpler?</strong> The transaction, here. <code>DELETE FROM products ... RETURNING *</code> returns only the deleted <code>products</code> row. The variants, versions and links go by <code>ON DELETE CASCADE</code>, and their rows aren't returned. Getting the whole product that way would take more <code>DELETE ... RETURNING</code> statements in a CTE, plus new code to assemble the rows. Loading first reuses the code that already builds a <code>ProductEntity</code>.</p><p><strong>Why a transaction?</strong> Two separate statements leave a gap. Another request could update the product between the load and the delete, and the service would return a product that isn't the one it deleted. In a transaction, the two statements form a single unit, and the lock taken by <code>FOR UPDATE</code> lasts until the commit, so a concurrent update waits until the delete is done. The lock is needed too: at PostgreSQL's default isolation level, READ COMMITTED, a plain <code>SELECT</code> in a transaction doesn't stop other writers.</p><p>Readers who changed a query must run <code>cargo sqlx prepare -- --all-targets</code> again to update <code>.sqlx/</code> for offline builds.</p></div></details></li>
-<li>Add a <code>test</code> profile (<code>config/test.toml</code>) with a smaller pool and a reviews timeout of 500 ms, and a settings test for it. Then add a <code>log_format</code> setting (<code>text</code> or <code>json</code>) that replaces the <code>LOG_FORMAT</code> variable from Chapter 24. What does <code>init_tracing</code> need, given that it runs before the settings are loaded?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The test profile overrides only what differs from <code>base.toml</code>. Like production, it has no database URL: the CI job sets <code>APP_DATABASE__URL</code>. <code>log_format</code> is an enum, so <code>serde</code> rejects anything but <code>text</code> and <code>json</code> at start-up, naming the key. The base file says <code>text</code>, production says <code>json</code>, and <code>APP_LOG_FORMAT</code> overrides both, like any other key. In TOML a top-level key must come before the first <code>[table]</code> header; below <code>[server]</code> it would become <code>server.log_format</code>.</p>
-<figure class="code plain project"><figcaption><span class="code-title">config/test.toml (new)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># Integration tests of a deployed service, for example in CI: a small pool and</span>
-<span class="c1"># a short reviews timeout, so a hanging stub fails a test quickly. The CI job</span>
-<span class="c1"># sets APP_DATABASE__URL to the database it starts.</span>
-<span class="k">[database]</span>
-<span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
-
-<span class="k">[reviews]</span>
-<span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">500</span></code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">config/base.toml (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/config/base.toml</span>
-<span class="gi">+++ b/config/base.toml</span>
-<span class="gu">@@ -2,4 +2,7 @@</span>
-<span class="w"> </span># (APP_ENV, default &quot;local&quot;) overrides these, and environment variables
-<span class="w"> </span># override both: APP_DATABASE__MAX_CONNECTIONS=30 sets database.max_connections.
-<span class="gi">+# text: readable lines; json: one JSON object per line, for log collectors</span>
-<span class="gi">+log_format = &quot;text&quot;</span>
-<span class="gi">+</span>
-<span class="w"> </span>[server]
-<span class="w"> </span>addr = &quot;127.0.0.1:3000&quot;</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">config/production.toml (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/config/production.toml</span>
-<span class="gi">+++ b/config/production.toml</span>
-<span class="gu">@@ -2,4 +2,6 @@</span>
-<span class="w"> </span># gets in) and allow more connections. The database URL contains a real
-<span class="w"> </span># password, so it never goes into a file: the platform sets APP_DATABASE__URL.
-<span class="gi">+log_format = &quot;json&quot;</span>
-<span class="gi">+</span>
-<span class="w"> </span>[server]
-<span class="w"> </span>addr = &quot;0.0.0.0:3000&quot;</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/settings.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/settings.rs</span>
+<li>Add a <code>log_format</code> setting (<code>text</code> or <code>json</code>) that replaces the <code>LOG_FORMAT</code> variable from Chapter 24: <code>.cargo/config.toml</code> says <code>text</code>, and other environments set <code>APP_LOG_FORMAT</code>. What does <code>init_tracing</code> need, given that it runs before the settings are loaded?<details class="solution"><summary>Solution</summary><div class="solution-body"><p><code>log_format</code> is an enum, so <code>serde</code> rejects anything but <code>text</code> and <code>json</code> at start-up, naming the key. <code>.cargo/config.toml</code> says <code>text</code>; every other environment has to set <code>APP_LOG_FORMAT</code>, like any other key, and a missing one stops the start-up. Locally, <code>APP_LOG_FORMAT=json cargo run</code> overrides the file for one run.</p><figure class="code plain project"><figcaption><span class="code-title">.cargo/config.toml (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/.cargo/config.toml</span>
+<span class="gi">+++ b/.cargo/config.toml</span>
+<span class="gu">@@ -6,4 +6,5 @@</span>
+<span class="w"> </span>[env]
+<span class="w"> </span>APP_ENVIRONMENT = &quot;local&quot;
+<span class="gi">+APP_LOG_FORMAT = &quot;text&quot; # or json</span>
+<span class="w"> </span>APP_SERVER__ADDR = &quot;127.0.0.1:3000&quot;
+<span class="w"> </span># The Podman container from Chapter 25. Its password is not a secret, so it</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/settings.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/settings.rs</span>
 <span class="gi">+++ b/src/settings.rs</span>
-<span class="gu">@@ -22,4 +22,5 @@</span>
-<span class="w"> </span>    #[serde(skip)]
-<span class="w"> </span>    pub profile: String,
-<span class="gi">+    pub log_format: LogFormat,</span>
-<span class="w"> </span>    pub server: ServerSettings,
-<span class="w"> </span>    pub database: DatabaseSettings,
-<span class="gu">@@ -27,4 +28,13 @@</span>
+<span class="gu">@@ -58,7 +58,16 @@</span>
 <span class="w"> </span>}
 <span class="w"> </span>
-<span class="gi">+/// How log events are written. Any other value in the files or in</span>
-<span class="gi">+/// `APP_LOG_FORMAT` is an error at start-up.</span>
-<span class="gi">+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]</span>
+<span class="gi">+/// How log lines are written: readable text, or one JSON object per line</span>
+<span class="gi">+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]</span>
 <span class="gi">+#[serde(rename_all = &quot;lowercase&quot;)]</span>
 <span class="gi">+pub enum LogFormat {</span>
 <span class="gi">+    Text,</span>
@@ -19608,60 +19636,70 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+}</span>
 <span class="gi">+</span>
 <span class="w"> </span>#[derive(Debug, Deserialize)]
-<span class="w"> </span>pub struct ServerSettings {
-<span class="gu">@@ -117,4 +127,26 @@</span>
+<span class="w"> </span>pub struct Settings {
+<span class="w"> </span>    pub environment: Environment,
+<span class="gi">+    pub log_format: LogFormat,</span>
+<span class="w"> </span>    pub server: ServerSettings,
+<span class="w"> </span>    pub database: DatabaseSettings,
+<span class="gu">@@ -128,6 +137,7 @@</span>
+<span class="w"> </span>
+<span class="w"> </span>    /// Everything an environment has to set
+<span class="gd">-    const PRODUCTION: [(&amp;str, &amp;str); 6] = [</span>
+<span class="gi">+    const PRODUCTION: [(&amp;str, &amp;str); 7] = [</span>
+<span class="w"> </span>        (&quot;APP_ENVIRONMENT&quot;, &quot;production&quot;),
+<span class="gi">+        (&quot;APP_LOG_FORMAT&quot;, &quot;json&quot;),</span>
+<span class="w"> </span>        (&quot;APP_SERVER__ADDR&quot;, &quot;0.0.0.0:3000&quot;),
+<span class="w"> </span>        (&quot;APP_DATABASE__URL&quot;, &quot;postgres://u:secret@db:5432/shoes&quot;),
+<span class="gu">@@ -148,4 +158,5 @@</span>
+<span class="w"> </span>        let settings = load(&amp;PRODUCTION).unwrap();
+<span class="w"> </span>        assert_eq!(settings.environment, Environment::Production);
+<span class="gi">+        assert_eq!(settings.log_format, LogFormat::Json);</span>
+<span class="w"> </span>        assert_eq!(settings.server.addr.to_string(), &quot;0.0.0.0:3000&quot;);
+<span class="w"> </span>        assert_eq!(settings.database.max_connections, 20);
+<span class="gu">@@ -166,4 +177,5 @@</span>
+<span class="w"> </span>        let settings = Settings::load().unwrap();
+<span class="w"> </span>        assert_eq!(settings.environment, Environment::Local);
+<span class="gi">+        assert_eq!(settings.log_format, LogFormat::Text);</span>
+<span class="w"> </span>    }
+<span class="w"> </span>
+<span class="gu">@@ -181,4 +193,10 @@</span>
 <span class="w"> </span>    }
 <span class="w"> </span>
 <span class="gi">+    #[test]</span>
-<span class="gi">+    fn the_test_profile_has_a_small_pool_and_a_short_timeout() {</span>
-<span class="gi">+        let vars = [(&quot;APP_DATABASE__URL&quot;, &quot;postgres://u:p@ci-db:5432/shoes&quot;)];</span>
-<span class="gi">+        let settings = load(&quot;test&quot;, &amp;vars).unwrap();</span>
-<span class="gi">+        assert_eq!(settings.database.max_connections, 2);</span>
-<span class="gi">+        assert_eq!(settings.reviews.timeout(), Duration::from_millis(500));</span>
-<span class="gi">+        assert_eq!(settings.reviews.url, &quot;https://jsonplaceholder.typicode.com&quot;); // from base.toml</span>
-<span class="gi">+        assert_eq!(settings.log_format, LogFormat::Text);</span>
-<span class="gi">+    }</span>
-<span class="gi">+</span>
-<span class="gi">+    #[test]</span>
 <span class="gi">+    fn log_format_is_text_or_json() {</span>
-<span class="gi">+        assert_eq!(load(&quot;local&quot;, &amp;[]).unwrap().log_format, LogFormat::Text);</span>
-<span class="gi">+        let url = (&quot;APP_DATABASE__URL&quot;, &quot;postgres://u:p@db:5432/shoes&quot;);</span>
-<span class="gi">+        let production = load(&quot;production&quot;, &amp;[url]).unwrap();</span>
-<span class="gi">+        assert_eq!(production.log_format, LogFormat::Json);</span>
-<span class="gi">+        let settings = load(&quot;local&quot;, &amp;[(&quot;APP_LOG_FORMAT&quot;, &quot;json&quot;)]).unwrap();</span>
-<span class="gi">+        assert_eq!(settings.log_format, LogFormat::Json);</span>
-<span class="gi">+        let error = load(&quot;local&quot;, &amp;[(&quot;APP_LOG_FORMAT&quot;, &quot;xml&quot;)]).unwrap_err();</span>
+<span class="gi">+        let error = load(&amp;with(&quot;APP_LOG_FORMAT&quot;, &quot;xml&quot;)).unwrap_err();</span>
 <span class="gi">+        assert!(error.to_string().contains(&quot;log_format&quot;), &quot;{error}&quot;);</span>
 <span class="gi">+    }</span>
 <span class="gi">+</span>
 <span class="w"> </span>    #[test]
-<span class="w"> </span>    fn production_without_a_database_url_is_an_error() {</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">src/main.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/main.rs</span>
+<span class="w"> </span>    fn errors_name_the_key() {</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">src/main.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/main.rs</span>
 <span class="gi">+++ b/src/main.rs</span>
-<span class="gu">@@ -1,10 +1,9 @@</span>
+<span class="gu">@@ -1,5 +1,4 @@</span>
 <span class="w"> </span>//! The web service: logging, settings, the database, the router, and a
 <span class="w"> </span>//! graceful shutdown.
 <span class="gd">-use std::env;</span>
 <span class="w"> </span>use std::error::Error;
 <span class="w"> </span>
+<span class="gu">@@ -7,5 +6,5 @@</span>
 <span class="w"> </span>use shoes::products::ProductService;
 <span class="w"> </span>use shoes::reviews::ReviewsClient;
 <span class="gd">-use shoes::settings::Settings;</span>
 <span class="gi">+use shoes::settings::{LogFormat, Settings};</span>
 <span class="w"> </span>use sqlx::postgres::PgPoolOptions;
 <span class="w"> </span>use tokio::net::TcpListener;
-<span class="gu">@@ -14,7 +13,7 @@</span>
+<span class="gu">@@ -15,7 +14,8 @@</span>
 <span class="w"> </span>
 <span class="w"> </span>/// Sends log events to stderr. `RUST_LOG` picks what to log (default: info
 <span class="gd">-/// from this crate and from tower-http), and `LOG_FORMAT=json` switches from</span>
 <span class="gd">-/// readable lines to one JSON object per line, for log collectors.</span>
 <span class="gd">-fn init_tracing() {</span>
-<span class="gi">+/// from this crate and from tower-http), and `format` how: readable lines,</span>
-<span class="gi">+/// or one JSON object per line, for log collectors.</span>
+<span class="gi">+/// from this crate and from tower-http), and the `log_format` setting</span>
+<span class="gi">+/// switches from readable lines to one JSON object per line, for log</span>
+<span class="gi">+/// collectors.</span>
 <span class="gi">+fn init_tracing(format: LogFormat) {</span>
 <span class="w"> </span>    let filter = EnvFilter::try_from_default_env()
 <span class="w"> </span>        .unwrap_or_else(|_| EnvFilter::new(&quot;shoes=info,tower_http=info&quot;));
-<span class="gu">@@ -22,8 +21,7 @@</span>
+<span class="gu">@@ -23,8 +23,7 @@</span>
 <span class="w"> </span>        .with_env_filter(filter)
 <span class="w"> </span>        .with_writer(std::io::stderr);
 <span class="gd">-    if env::var(&quot;LOG_FORMAT&quot;).as_deref() == Ok(&quot;json&quot;) {</span>
@@ -19669,50 +19707,49 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gd">-    } else {</span>
 <span class="gd">-        builder.init();</span>
 <span class="gi">+    match format {</span>
-<span class="gi">+        LogFormat::Json =&gt; builder.json().init(),</span>
 <span class="gi">+        LogFormat::Text =&gt; builder.init(),</span>
+<span class="gi">+        LogFormat::Json =&gt; builder.json().init(),</span>
 <span class="w"> </span>    }
 <span class="w"> </span>}
-<span class="gu">@@ -50,6 +48,9 @@</span>
+<span class="gu">@@ -51,6 +50,6 @@</span>
 <span class="w"> </span>#[tokio::main]
 <span class="w"> </span>async fn main() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
 <span class="gd">-    init_tracing();</span>
-<span class="gi">+    // The format is a setting, so the settings come first. If they can&#39;t be</span>
-<span class="gi">+    // loaded, there&#39;s no logging yet: main returns the error, and Rust</span>
-<span class="gi">+    // prints it to stderr as &quot;Error: ...&quot;.</span>
 <span class="w"> </span>    let settings = Settings::load()?;
 <span class="gi">+    init_tracing(settings.log_format);</span>
 <span class="w"> </span>    info!(
-<span class="w"> </span>        profile = settings.profile,</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">cargo test (summary)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ cargo test
+<span class="w"> </span>        environment = settings.environment.as_str(),</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">cargo test (summary)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ cargo test
      Running unittests src/lib.rs
-test settings::tests::the_test_profile_has_a_small_pool_and_a_short_timeout ... ok
 test settings::tests::log_format_is_text_or_json ... ok
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running unittests src/main.rs
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
      Running tests/api.rs
-test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
      Running tests/reviews.rs
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
    Doc-tests shoes
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</code></pre></figure>
-<figure class="code plain project"><figcaption><span class="code-title">the server&#x27;s log, three starts with the test profile</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ export APP_DATABASE__URL=postgres://catalog:catalog@localhost:5432/shoes_g APP_SERVER__ADDR=127.0.0.1:3205
-$ APP_ENV=test cargo run -q
-2026-11-15T18:34:19.821318Z  INFO shoes: settings loaded profile=&quot;test&quot; addr=127.0.0.1:3205 max_connections=2
-2026-11-15T18:34:20.038571Z  INFO shoes: database ready
-2026-11-15T18:34:20.052119Z  INFO shoes: listening on http://127.0.0.1:3205
-2026-11-15T18:34:20.124138Z  INFO request{method=GET uri=/products/1 version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=4 ms status=404
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">the server&#x27;s log: two local starts, then two that stop (the last without Cargo)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ export APP_DATABASE__URL=postgres://catalog:catalog@localhost:5432/shoes_g APP_SERVER__ADDR=127.0.0.1:3205
+$ cargo run -q
+2026-11-16T00:51:31.622799Z  INFO shoes: settings loaded environment=&quot;local&quot; addr=127.0.0.1:3205 max_connections=10
+2026-11-16T00:51:31.670640Z  INFO shoes: database ready
+2026-11-16T00:51:31.684463Z  INFO shoes: listening on http://127.0.0.1:3205
+2026-11-16T00:51:33.128667Z  INFO request{method=GET uri=/products/1 version=HTTP/1.1}: tower_http::trace::on_response: finished processing request latency=4 ms status=404
+2026-11-16T00:51:33.433395Z  INFO shoes: stopped
 
-$ APP_ENV=test APP_LOG_FORMAT=json cargo run -q
-{&quot;timestamp&quot;:&quot;2026-11-15T18:34:20.605925Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;settings loaded&quot;,&quot;profile&quot;:&quot;test&quot;,&quot;addr&quot;:&quot;127.0.0.1:3205&quot;,&quot;max_connections&quot;:2},&quot;target&quot;:&quot;shoes&quot;}
-{&quot;timestamp&quot;:&quot;2026-11-15T18:34:20.639627Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;database ready&quot;},&quot;target&quot;:&quot;shoes&quot;}
-{&quot;timestamp&quot;:&quot;2026-11-15T18:34:20.653623Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;listening on http://127.0.0.1:3205&quot;},&quot;target&quot;:&quot;shoes&quot;}
-{&quot;timestamp&quot;:&quot;2026-11-15T18:34:20.664159Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;finished processing request&quot;,&quot;latency&quot;:&quot;3 ms&quot;,&quot;status&quot;:404},&quot;target&quot;:&quot;tower_http::trace::on_response&quot;,&quot;span&quot;:{&quot;method&quot;:&quot;GET&quot;,&quot;uri&quot;:&quot;/products/1&quot;,&quot;version&quot;:&quot;HTTP/1.1&quot;,&quot;name&quot;:&quot;request&quot;},&quot;spans&quot;:[{&quot;method&quot;:&quot;GET&quot;,&quot;uri&quot;:&quot;/products/1&quot;,&quot;version&quot;:&quot;HTTP/1.1&quot;,&quot;name&quot;:&quot;request&quot;}]}
+$ APP_LOG_FORMAT=json cargo run -q
+{&quot;timestamp&quot;:&quot;2026-11-16T00:51:33.445417Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;settings loaded&quot;,&quot;environment&quot;:&quot;local&quot;,&quot;addr&quot;:&quot;127.0.0.1:3205&quot;,&quot;max_connections&quot;:10},&quot;target&quot;:&quot;shoes&quot;}
+{&quot;timestamp&quot;:&quot;2026-11-16T00:51:33.480462Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;database ready&quot;},&quot;target&quot;:&quot;shoes&quot;}
+{&quot;timestamp&quot;:&quot;2026-11-16T00:51:33.494335Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;listening on http://127.0.0.1:3205&quot;},&quot;target&quot;:&quot;shoes&quot;}
+{&quot;timestamp&quot;:&quot;2026-11-16T00:51:34.951300Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;finished processing request&quot;,&quot;latency&quot;:&quot;4 ms&quot;,&quot;status&quot;:404},&quot;target&quot;:&quot;tower_http::trace::on_response&quot;,&quot;span&quot;:{&quot;method&quot;:&quot;GET&quot;,&quot;uri&quot;:&quot;/products/1&quot;,&quot;version&quot;:&quot;HTTP/1.1&quot;,&quot;name&quot;:&quot;request&quot;},&quot;spans&quot;:[{&quot;method&quot;:&quot;GET&quot;,&quot;uri&quot;:&quot;/products/1&quot;,&quot;version&quot;:&quot;HTTP/1.1&quot;,&quot;name&quot;:&quot;request&quot;}]}
+{&quot;timestamp&quot;:&quot;2026-11-16T00:51:35.256086Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;fields&quot;:{&quot;message&quot;:&quot;stopped&quot;},&quot;target&quot;:&quot;shoes&quot;}
 
-$ APP_ENV=test APP_LOG_FORMAT=xml cargo run -q
-Error: enum LogFormat does not have variant constructor xml for key `log_format`</code></pre></figure>
-<p><strong>What does <code>init_tracing</code> need?</strong> The format, as a parameter. And because the format now comes from the settings, <code>main</code> has to load the settings first and call <code>init_tracing(settings.log_format)</code> after. Nothing is lost by that. Loading the settings logs nothing, and if it fails, <code>main</code> returns the error and Rust prints it to stderr, as the last run shows. <code>RUST_LOG</code> stays an environment variable, because it's the convention every Rust tool follows.</p></div></details></li>
+$ APP_LOG_FORMAT=xml cargo run -q
+Error: enum LogFormat does not have variant constructor xml for key `log_format`
+
+$ APP_ENVIRONMENT=production APP_SERVER__ADDR=0.0.0.0:3000 APP_DATABASE__MAX_CONNECTIONS=20 \
+    APP_REVIEWS__URL=https://jsonplaceholder.typicode.com APP_REVIEWS__TIMEOUT_MS=5000 target/debug/shoes
+Error: missing configuration field &quot;log_format&quot;</code></pre></figure><p><strong>What does <code>init_tracing</code> need?</strong> The format, as a parameter. And because the format now comes from the settings, <code>main</code> has to load the settings first and call <code>init_tracing(settings.log_format)</code> after. Nothing is lost by that. Loading the settings logs nothing, and if it fails, <code>main</code> returns the error and Rust prints it to stderr, as the last two runs show. <code>RUST_LOG</code> stays an environment variable, because it's the convention every Rust tool follows.</p></div></details></li>
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#ch26-schema-changes"><span>Next · Chapter 26</span>Changing the Schema</a></footer></section>
@@ -19961,10 +19998,10 @@ test products::model::tests::unknown_fields_are_rejected ... ok
 test products::validate::tests::a_valid_product_passes ... ok
 test products::validate::tests::find_duplicate_returns_the_second_occurrence ... ok
 test products::validate::tests::each_rule_has_its_own_error ... ok
-test settings::tests::local_needs_no_environment_variables ... ok
-test settings::tests::production_overrides_base_and_variables_override_both ... ok
-test settings::tests::production_without_a_database_url_is_an_error ... ok
-test settings::tests::errors_name_the_key_or_the_file ... ok
+test settings::tests::cargo_config_sets_every_local_value ... ok
+test settings::tests::every_value_comes_from_a_variable ... ok
+test settings::tests::a_missing_variable_is_an_error ... ok
+test settings::tests::errors_name_the_key ... ok
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
@@ -21064,10 +21101,10 @@ test products::model::tests::unknown_fields_are_rejected ... ok
 test products::validate::tests::a_valid_product_passes ... ok
 test products::validate::tests::each_rule_has_its_own_error ... ok
 test products::validate::tests::find_duplicate_returns_the_second_occurrence ... ok
-test settings::tests::local_needs_no_environment_variables ... ok
-test settings::tests::production_overrides_base_and_variables_override_both ... ok
-test settings::tests::production_without_a_database_url_is_an_error ... ok
-test settings::tests::errors_name_the_key_or_the_file ... ok
+test settings::tests::cargo_config_sets_every_local_value ... ok
+test settings::tests::every_value_comes_from_a_variable ... ok
+test settings::tests::a_missing_variable_is_an_error ... ok
+test settings::tests::errors_name_the_key ... ok
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
@@ -21109,7 +21146,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <h3 id="authentication-run-it">Run it</h3>
 <p>Start the service with debug logging for the crate, so the log shows why each request was refused:</p>
 <figure class="code plain project"><figcaption><span class="code-title">first terminal: the server&#x27;s log (stderr)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ RUST_LOG=shoes=debug,tower_http=info cargo run
-2026-11-15T18:50:58.649109Z  INFO shoes: settings loaded profile=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
+2026-11-15T18:50:58.649109Z  INFO shoes: settings loaded environment=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
 2026-11-15T18:50:58.687143Z  INFO shoes: database ready
 2026-11-15T18:50:58.702736Z  INFO shoes: listening on http://127.0.0.1:3000
 2026-11-15T18:50:59.166019Z DEBUG request{method=GET uri=/products version=HTTP/1.1}: shoes::auth: request not authenticated error=the Authorization header is missing
@@ -21340,7 +21377,7 @@ test an_unknown_path_is_404_even_without_a_token ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s</code></pre></figure>
 <p>Running the service as before, every event of an authenticated request names the user, including the service's own <code>product created</code>:</p>
 <figure class="code plain project"><figcaption><span class="code-title">first terminal: the server&#x27;s log (stderr)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>$ RUST_LOG=shoes=debug,tower_http=info cargo run
-2026-11-15T20:55:23.053724Z  INFO shoes: settings loaded profile=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
+2026-11-15T20:55:23.053724Z  INFO shoes: settings loaded environment=&quot;local&quot; addr=127.0.0.1:3000 max_connections=10
 2026-11-15T20:55:23.117146Z  INFO shoes: database ready
 2026-11-15T20:55:23.131631Z  INFO shoes: listening on http://127.0.0.1:3000
 2026-11-15T20:55:25.565649Z  INFO request{method=GET uri=/me version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=0 ms status=200
@@ -22002,6 +22039,409 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
    Doc-tests shoes
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure>
 <p><strong>A handler that forgets the argument</strong> still compiles, and it runs for everyone. Here every route except <code>POST /products</code> and <code>GET /me</code> is now public, <code>PUT</code> and <code>DELETE</code> included. Protection becomes opt-in for each handler, and forgetting it fails silently. With the middleware, the decision is made once, for a whole router.</p><p><strong>Choose an extractor</strong> when the handler needs the caller anyway, for example to record who created a product or to check ownership. It also fits when only a few endpoints need authentication, or for a requirement on one handler, such as an <code>Admin</code> extractor that rejects with 403. Like <code>@PreAuthorize</code>, it makes the requirement visible in the signature. A common mix is middleware that authenticates every route and stores the user in the extensions, plus handlers that take it as an argument when they need it: the chapter's code.</p></div></details></li>
+</ol>
+
+<footer class="ch-foot"><a class="next-ch" href="#ch28-containers"><span>Next · Chapter 28</span>Shipping the Service in a Container</a></footer></section>
+<section class="chapter" id="ch28-containers" aria-labelledby="ch28-containers-h"><header class="ch-head"><div class="ch-num">Chapter 28</div><h2 id="ch28-containers-h">Shipping the Service in a Container</h2><p class="lede">A release binary built for size, a two-stage Containerfile that compiles it in a Rust image and copies it into a 35 MB image with no shell and no configuration, and the service running in Podman next to its database, configured by environment variables and shutting down cleanly as PID 1.</p></header>
+<p>So far the service has run with <code>cargo run</code> on your machine. Production runs it somewhere else, and today that usually means a container image. A Rust service is easy to package: at run time it needs one executable, its settings and the C library, and nothing else. No runtime, no interpreter, no dependency folder. This chapter builds that executable for release, puts it in an image, and runs the image in Podman next to the PostgreSQL container from Chapter 25. The Rust code doesn't change: since Chapter 25, every environment except <code>local</code> takes all its settings from environment variables, which is exactly what a container needs.</p>
+
+<h3 id="containers-release-builds">Release builds</h3>
+<p><code>cargo build</code> uses the <code>dev</code> profile: no optimizations and full debug info, so it compiles fast and debugs well. <code>cargo build --release</code> uses the <code>release</code> profile, optimized for speed. A profile is a named set of compiler settings in <code>Cargo.toml</code>, and you can add your own that starts from a built-in one with <code>inherits</code>. The service gets a <code>small</code> profile, which builds the release binary optimized for size:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Command</th><th>Profile</th><th>Binary</th><th>Writes</th></tr></thead>
+<tbody>
+<tr><td><code>cargo build</code></td><td><code>dev</code></td><td>143 MB</td><td><code>target/debug/shoes</code></td></tr>
+<tr><td><code>cargo build --release</code></td><td><code>release</code></td><td>15 MB</td><td><code>target/release/shoes</code></td></tr>
+<tr><td><code>cargo build --profile small</code></td><td><code>small</code> (below)</td><td>5.7 MB</td><td><code>target/small/shoes</code></td></tr>
+</tbody>
+</table></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>strip = true</code></td><td>drops the symbol table and debug info, the largest saving. Panic backtraces lose their function names.</td></tr>
+<tr><td><code>opt-level = "z"</code></td><td>optimizes for size instead of speed (<code>3</code> is the release default). The code is somewhat slower, which an I/O-bound service like this one doesn't notice.</td></tr>
+<tr><td><code>lto = true</code></td><td>link-time optimization across all crates: the optimizer sees the whole program and removes what's unused. It makes the final link slow.</td></tr>
+<tr><td><code>codegen-units = 1</code></td><td>compiles each crate as one unit rather than 16 in parallel, so the optimizer sees more at once. Slower again, a little smaller and faster.</td></tr>
+</tbody>
+</table></div>
+<p>One setting the profile deliberately leaves out is <code>panic = "abort"</code>, which would shrink the binary further. With it, a panic in one handler ends the whole process. By default, a panic unwinds: it ends only the Tokio task that runs that connection, and the server keeps serving everyone else.</p>
+
+<h3 id="containers-what-the-binary-needs">What the binary needs at run time</h3>
+<p>Everything from crates is compiled into the binary: Tokio, axum, SQLx, rustls and the rest. <code>ldd</code> shows what is still loaded at start-up:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>ldd<span class="w"> </span>target/small/shoes
+<span class="go">	linux-vdso.so.1 (0x00007d02b14e2000)</span>
+<span class="go">	libgcc_s.so.1 =&gt; /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007d02b14a6000)</span>
+<span class="go">	libm.so.6 =&gt; /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007d02b0cda000)</span>
+<span class="go">	libc.so.6 =&gt; /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007d02b0a00000)</span>
+<span class="go">	/lib64/ld-linux-x86-64.so.2 (0x00007d02b14e4000)</span>
+<span class="gp">$ </span>objdump<span class="w"> </span>-T<span class="w"> </span>target/small/shoes<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;GLIBC_[0-9.]*&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-uV<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-1
+<span class="go">GLIBC_2.38</span></code></pre></figure>
+<ul>
+<li><strong>The C library.</strong> Rust's standard library calls the operating system through glibc (<code>libc</code>, <code>libm</code>), and unwinding uses <code>libgcc_s</code>. Those are linked dynamically, like in any C program on Linux. glibc versions its symbols, and the binary records the newest version it needs: <code>GLIBC_2.38</code>. So it runs where glibc is 2.38 or newer, such as Ubuntu 26.04 (2.43) or Debian 13 (2.41), and not on Debian 12 (2.36).</li>
+<li><strong>Its settings, as environment variables.</strong> <code>Settings::load</code> reads <code>APP_ENVIRONMENT</code> and the <code>APP_*</code> variables and no file (Chapter 25), so the image needs no configuration file. The local values in <code>.cargo/config.toml</code> only exist for processes that Cargo starts; nothing of them is compiled into the binary.</li>
+<li><strong>CA certificates.</strong> reqwest checks the reviews service's HTTPS certificate against the system's trusted certificates in <code>/etc/ssl/certs</code>. Without any, <code>ReviewsClient::new</code> fails and the service doesn't start: <code>No CA certificates were loaded from the system</code>.</li>
+<li><strong>Nothing else.</strong> <code>sqlx::migrate!</code> embedded the migrations in the binary, and <code>.sqlx/</code> was only needed to compile the queries.</li>
+</ul>
+<aside class="callout c-c"><div class="callout-label">Coming from C</div><p>The result is what a C programmer gets by linking every library statically except libc. The glibc rule is the familiar one too: build on the oldest system you want to run on, or on the same distribution release, because a binary built against a newer glibc may need symbol versions that an older one doesn't have. The loader then refuses to start it. A Rust binary can also be fully static, with musl instead of glibc: practice task 3.</p></aside>
+<aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>A Spring Boot fat jar needs a JRE in the image, which alone is a couple of hundred megabytes, and the JVM needs memory flags that fit the container's limits and time to warm up. The closest JVM analogue to this binary is a GraalVM <code>native-image</code>: one executable, fast start-up, no JRE. There it's an extra build with its own limits on reflection; in Rust, a native executable is simply what the compiler produces.</p></aside>
+
+<h3 id="containers-project-step">Project step 28: a container image</h3>
+<aside class="callout c-new"><div class="callout-label">This step</div><p><code>Cargo.toml</code> gets the <code>small</code> profile, and two new files package the service: a <code>Containerfile</code> that builds the binary in a Rust image and copies it, and nothing else, into a minimal runtime image, and a <code>.containerignore</code> that keeps the build context small. No Rust code changes.</p></aside>
+<figure class="code plain project" data-diff-file="Cargo.toml" data-diff-since="27"><figcaption><span class="code-title">Cargo.toml (changes since step 27)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/Cargo.toml</span>
+<span class="gi">+++ b/Cargo.toml</span>
+<span class="gu">@@ -23,2 +23,12 @@</span>
+<span class="w"> </span>tower = { version = &quot;0.5&quot;, features = [&quot;util&quot;] }
+<span class="w"> </span>
+<span class="gi">+# A release build optimized for size: `cargo build --profile small` writes</span>
+<span class="gi">+# target/small/shoes, about 5.7 MB instead of 15 MB for --release. The code is</span>
+<span class="gi">+# somewhat slower than opt-level 3, which this I/O-bound service doesn&#x27;t notice,</span>
+<span class="gi">+# and crash backtraces lose their function names.</span>
+<span class="gi">+[profile.small]</span>
+<span class="gi">+inherits = &quot;release&quot;</span>
+<span class="gi">+strip = true        # drop the symbol table and debug info</span>
+<span class="gi">+opt-level = &quot;z&quot;     # optimize for size instead of speed</span>
+<span class="gi">+lto = true          # optimize across all crates at link time</span>
+<span class="gi">+codegen-units = 1   # one unit per crate, so the optimizer sees more at once</span></code></pre></figure>
+<p>The <code>Containerfile</code> describes the image. Podman looks for a file with that name first and falls back to <code>Dockerfile</code>; the syntax is the same, and Docker builds it with <code>docker build -f Containerfile .</code>.</p>
+<figure class="code plain project"><figcaption><span class="code-title">Containerfile</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c"># The shoe service as a container image, built in two stages.</span>
+<span class="c">#</span>
+<span class="c"># Building takes the Cargo profile from the CARGO_PROFILE environment variable</span>
+<span class="c"># (default: small). A bare --build-arg passes the variable into the build:</span>
+<span class="c">#   CARGO_PROFILE=release podman build --build-arg CARGO_PROFILE -t shoes .</span>
+<span class="c">#</span>
+<span class="c"># The image holds no configuration. Running it takes every setting from</span>
+<span class="c"># environment variables, APP_ENVIRONMENT included, for example from a file</span>
+<span class="c"># kept outside the repository:</span>
+<span class="c">#   podman run --env-file staging.env shoes</span>
+<span class="c"># (see &quot;Run it in a container&quot; in README.md)</span>
+
+<span class="c"># Stage 1: compile in the full Rust toolchain image.</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">docker.io/library/rust:1.100-slim-trixie</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/src</span>
+<span class="k">COPY</span><span class="w"> </span>Cargo.toml<span class="w"> </span>Cargo.lock<span class="w"> </span>./
+<span class="k">COPY</span><span class="w"> </span>.sqlx<span class="w"> </span>.sqlx
+<span class="k">COPY</span><span class="w"> </span>migrations<span class="w"> </span>migrations
+<span class="k">COPY</span><span class="w"> </span>src<span class="w"> </span>src
+<span class="c"># The query! macros read .sqlx/ instead of connecting to a database.</span>
+<span class="k">ENV</span><span class="w"> </span><span class="nv">SQLX_OFFLINE</span><span class="o">=</span><span class="nb">true</span>
+<span class="c"># The Cargo profile to build: small (the default), release, dev, or any other</span>
+<span class="c"># profile in Cargo.toml. Inside RUN it&#39;s an environment variable.</span>
+<span class="k">ARG</span><span class="w"> </span><span class="nv">CARGO_PROFILE</span><span class="o">=</span>small
+<span class="c"># The cache mounts keep downloaded crates and compiled dependencies between</span>
+<span class="c"># builds, so a change in src/ recompiles only this crate. They aren&#39;t part of</span>
+<span class="c"># the image, so the binary is copied out in the same step. Cargo writes the dev</span>
+<span class="c"># profile to target/debug and every other profile to target/&lt;profile&gt;.</span>
+<span class="k">RUN</span><span class="w"> </span>--mount<span class="o">=</span><span class="nv">type</span><span class="o">=</span>cache,target<span class="o">=</span>/usr/local/cargo/registry<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mount<span class="o">=</span><span class="nv">type</span><span class="o">=</span>cache,target<span class="o">=</span>/src/target<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>cargo<span class="w"> </span>build<span class="w"> </span>--locked<span class="w"> </span>--profile<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">dir</span><span class="o">=</span><span class="k">$(</span><span class="o">[</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>dev<span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>debug<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span>cp<span class="w"> </span><span class="s2">&quot;target/</span><span class="nv">$dir</span><span class="s2">/shoes&quot;</span><span class="w"> </span>/usr/local/bin/shoes
+
+<span class="c"># Stage 2: only the binary, on a base with glibc, libgcc and CA certificates</span>
+<span class="c"># but no shell or package manager. No settings files and no APP_* variables:</span>
+<span class="c"># those come from wherever the container runs.</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">gcr.io/distroless/cc-debian13:nonroot</span>
+<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build<span class="w"> </span>/usr/local/bin/shoes<span class="w"> </span>/usr/local/bin/shoes
+<span class="k">USER</span><span class="w"> </span><span class="s">nonroot:nonroot</span>
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">3000</span>
+<span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/local/bin/shoes&quot;</span><span class="p">]</span></code></pre></figure>
+<ul>
+<li><strong>Two stages.</strong> The first stage, named <code>build</code>, starts from the official Rust image with the 1.100 toolchain and compiles. The second starts from a fresh, small base and copies in only the binary. The 935 MB toolchain image never ships; it stays behind as a build cache.</li>
+<li><strong>Only what the build needs.</strong> The manifest and lock file, the saved query metadata, the migrations (which <code>migrate!</code> embeds) and the sources. <code>SQLX_OFFLINE=true</code> makes the <code>query!</code> macros read <code>.sqlx/</code>, so the build needs no database. <code>--locked</code> fails the build if <code>Cargo.lock</code> doesn't match <code>Cargo.toml</code>, instead of quietly resolving other versions than the ones you tested.</li>
+<li><strong>The Cargo profile comes from the build's environment.</strong> <code>ARG CARGO_PROFILE=small</code> declares a build argument with a default, and inside <code>RUN</code> it's an environment variable. A Containerfile can't read the build machine's environment by itself: <code>--build-arg CARGO_PROFILE</code> without a value passes the variable of that name, which is how a CI pipeline usually hands it over, and <code>--build-arg CARGO_PROFILE=release</code> sets it directly. Cargo writes the <code>dev</code> profile to <code>target/debug</code> and every other one to <code>target/&lt;profile&gt;</code>, hence the <code>dir</code> step.</li>
+<li><strong>Cache mounts.</strong> <code>RUN --mount=type=cache</code> gives the step a directory that survives between builds but isn't part of the image: here the downloaded crates and <code>target/</code>. After a change in <code>src/</code>, only the <code>shoes</code> crate is compiled again (about 25 s here, most of it the link-time optimization) instead of all 204 crates. The binary has to be copied out of <code>target/</code> in the same step, because the cache isn't there afterwards. Podman and Docker (with BuildKit) both support cache mounts; guides that predate them use a tool such as <code>cargo-chef</code> to cache the dependencies in an image layer.</li>
+<li><strong>The runtime base.</strong> <code>gcr.io/distroless/cc-debian13</code> is Google's "distroless" image for C-like binaries: glibc, <code>libgcc_s</code>, CA certificates, time zone data and an <code>/etc/passwd</code>, but no shell and no package manager, so a compromised process finds few tools. It's Debian 13, the same release the build image is based on, so the glibc the binary was linked against is the one it finds.</li>
+<li><strong>No configuration.</strong> The second stage copies the binary and nothing else: no settings file and no <code>ENV</code> with an <code>APP_*</code> value. Every setting, <code>APP_ENVIRONMENT</code> and the listening address included, arrives when a container starts. The same image runs in staging and in production, and it holds nothing that belongs to one environment or is secret.</li>
+<li><strong>A user without privileges.</strong> The <code>nonroot</code> tag and <code>USER nonroot:nonroot</code> run the process as user 65532, not root. The service writes no files, so it needs no writable directory.</li>
+<li><strong><code>EXPOSE</code></strong> only documents the port; publishing it is up to <code>podman run -p</code>. <strong><code>ENTRYPOINT</code></strong> in the JSON (exec) form starts <code>/usr/local/bin/shoes</code> directly as the container's first process. The shell form would need a <code>/bin/sh</code> to run it, and the image has none.</li>
+</ul>
+<p>The build sends a <em>build context</em>, the project directory, to the builder. <code>target/</code> alone is several gigabytes, so <code>.containerignore</code> excludes everything and then lists the exceptions. <code>.cargo/</code> isn't among them, so not even the local values reach the build. An allow-list doesn't need updating when a new directory appears. Podman reads <code>.containerignore</code> or <code>.dockerignore</code>; Docker reads only <code>.dockerignore</code>.</p>
+<figure class="code plain project"><figcaption><span class="code-title">.containerignore</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c1"># The build context holds only what the Containerfile copies. Everything else,</span>
+<span class="c1"># above all target/ with its gigabytes, stays out.</span>
+*
+!Cargo.toml
+!Cargo.lock
+!.sqlx
+!migrations
+!src</code></pre></figure>
+<aside class="callout c-warn"><div class="callout-label">Watch out</div><p>Secrets never go into the image: anyone who can pull it can read its files and its <code>ENV</code> values, and a file deleted in a later step is still in an earlier layer. That's one reason this image holds no settings at all. Environment variables aren't a vault either: <code>podman inspect</code> shows a container's variables to anyone allowed to manage it, and child processes inherit them. Protect them where they come from: a secret store in production, and on your machine an env file outside the repository that only you can read.</p></aside>
+
+<h3 id="containers-build-it">Build it</h3>
+<p>From <code>project/</code>:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>shoes<span class="w"> </span>.
+<span class="go">[1/2] STEP 1/9: FROM docker.io/library/rust:1.100-slim-trixie AS build</span>
+<span class="go">[1/2] STEP 2/9: WORKDIR /src</span>
+<span class="go">[1/2] STEP 3/9: COPY Cargo.toml Cargo.lock ./</span>
+<span class="go">[1/2] STEP 4/9: COPY .sqlx .sqlx</span>
+<span class="go">[1/2] STEP 5/9: COPY migrations migrations</span>
+<span class="go">[1/2] STEP 6/9: COPY src src</span>
+<span class="go">[1/2] STEP 7/9: ENV SQLX_OFFLINE=true</span>
+<span class="go">[1/2] STEP 8/9: ARG CARGO_PROFILE=small</span>
+<span class="go">[1/2] STEP 9/9: RUN --mount=type=cache,target=/usr/local/cargo/registry     --mount=type=cache,target=/src/target     cargo build --locked --profile &quot;$CARGO_PROFILE&quot;     &amp;&amp; dir=$([ &quot;$CARGO_PROFILE&quot; = dev ] &amp;&amp; echo debug || echo &quot;$CARGO_PROFILE&quot;)     &amp;&amp; cp &quot;target/$dir/shoes&quot; /usr/local/bin/shoes</span>
+<span class="go">  (… 200 &quot;Compiling&quot; lines left out …)</span>
+<span class="go">    Finished `small` profile [optimized] target(s) in 49.28s</span>
+<span class="go">[2/2] STEP 1/5: FROM gcr.io/distroless/cc-debian13:nonroot</span>
+<span class="go">[2/2] STEP 2/5: COPY --from=build /usr/local/bin/shoes /usr/local/bin/shoes</span>
+<span class="go">[2/2] STEP 3/5: USER nonroot:nonroot</span>
+<span class="go">[2/2] STEP 4/5: EXPOSE 3000</span>
+<span class="go">[2/2] STEP 5/5: ENTRYPOINT [&quot;/usr/local/bin/shoes&quot;]</span>
+<span class="go">[2/2] COMMIT shoes</span>
+<span class="go">Successfully tagged localhost/shoes:latest</span>
+<span class="gp">$ </span>podman<span class="w"> </span>images
+<span class="go">REPOSITORY                     TAG                IMAGE ID      CREATED        SIZE</span>
+<span class="go">localhost/shoes                latest             4475cc14a82a  1 second ago   35 MB</span>
+<span class="go">&lt;none&gt;                         &lt;none&gt;             31d88edd7234  3 seconds ago  941 MB</span>
+<span class="go">docker.io/library/rust         1.100-slim-trixie  a5dfbb6ea039  3 days ago     935 MB</span>
+<span class="go">gcr.io/distroless/cc-debian13  nonroot            d6f64fa79966  56 years ago   29.2 MB</span></code></pre></figure>
+<p>The image is 35 MB: 29 MB of distroless base and the 5.7 MB binary. The first build took a minute; the step's output is the same <code>cargo build</code> output as on your machine. The untagged 941 MB image is the <code>build</code> stage, kept so that the next build can reuse its layers. <code>podman image prune</code> removes such images when they pile up. Other profiles build the same way, and a profile that <code>Cargo.toml</code> doesn't define fails the build:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">CARGO_PROFILE</span><span class="o">=</span>release<span class="w"> </span>-t<span class="w"> </span>shoes:release<span class="w"> </span>.
+<span class="gp">$ </span><span class="nv">CARGO_PROFILE</span><span class="o">=</span>dev<span class="w"> </span>podman<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span>CARGO_PROFILE<span class="w"> </span>-t<span class="w"> </span>shoes:dev<span class="w"> </span>.
+<span class="gp">$ </span>podman<span class="w"> </span>images<span class="w"> </span>--format<span class="w"> </span><span class="s1">&#39;{{.Repository}}:{{.Tag}} {{.Size}}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>shoes
+<span class="go">localhost/shoes:dev 169 MB</span>
+<span class="go">localhost/shoes:release 44.4 MB</span>
+<span class="go">localhost/shoes:latest 35 MB</span>
+<span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">CARGO_PROFILE</span><span class="o">=</span>fast<span class="w"> </span>-t<span class="w"> </span>shoes:fast<span class="w"> </span>.
+<span class="go">error: profile `fast` is not defined</span></code></pre></figure>
+
+<h3 id="containers-run-it">Run it next to the database</h3>
+<p>The image has no settings, so started on its own it stops at once, naming the first missing variable:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>shoes
+<span class="go">Error: missing configuration field &quot;environment&quot;</span>
+<span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-e<span class="w"> </span><span class="nv">APP_ENVIRONMENT</span><span class="o">=</span>production<span class="w"> </span>shoes
+<span class="go">Error: missing configuration field &quot;server&quot;</span></code></pre></figure>
+<p>The settings go in an env file, one <code>KEY=value</code> per line, which <code>podman run --env-file</code> turns into the container's environment. This run pretends to be staging. The file holds the database password, so it lives outside the repository, here in <code>~/shoes/</code>; in a real deployment the platform sets the same variables from its configuration and secret store.</p>
+<figure class="code plain"><figcaption><span class="code-title">~/shoes/staging.env</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>APP_ENVIRONMENT=staging
+APP_SERVER__ADDR=0.0.0.0:3000
+APP_DATABASE__URL=postgres://catalog:catalog@catalog-db:5432/shoes
+APP_DATABASE__MAX_CONNECTIONS=5
+APP_REVIEWS__URL=https://jsonplaceholder.typicode.com
+APP_REVIEWS__TIMEOUT_MS=5000</code></pre></figure>
+<p>Inside a container, <code>localhost</code> is the container itself, so the service can't reach the database at <code>localhost:5432</code>. Containers on the same Podman network reach each other by container name instead, which is why the URL says <code>catalog-db</code>: Podman runs a DNS server for each network it creates. Chapter 25 started <code>catalog-db</code> on the default network of rootless Podman, and Podman can't move a container from there to another network (<code>podman network connect</code> fails with <code>"pasta" is not supported</code>). So create a network and start the database again on it. The data is in the <code>catalog-pgdata</code> volume, so nothing is lost, and the database keeps its port on <code>127.0.0.1:5432</code>, so <code>cargo run</code> and the tests keep working:</p>
+<figure class="code plain project"><figcaption><span class="code-title">start the database and the service</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>podman<span class="w"> </span>network<span class="w"> </span>create<span class="w"> </span>catalog
+
+<span class="c1"># Recreate the database on the network. The data lives in the volume, so it stays.</span>
+podman<span class="w"> </span>stop<span class="w"> </span>catalog-db<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>podman<span class="w"> </span>rm<span class="w"> </span>catalog-db
+podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>catalog-db<span class="w"> </span>--network<span class="w"> </span>catalog<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">POSTGRES_USER</span><span class="o">=</span>catalog<span class="w"> </span>-e<span class="w"> </span><span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>catalog<span class="w"> </span>-e<span class="w"> </span><span class="nv">POSTGRES_DB</span><span class="o">=</span>catalog<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:5432:5432<span class="w"> </span>-v<span class="w"> </span>catalog-pgdata:/var/lib/postgresql<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--health-cmd<span class="w"> </span><span class="s1">&#39;pg_isready -U catalog -d catalog&#39;</span><span class="w"> </span>--health-interval<span class="w"> </span>5s<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>docker.io/library/postgres:18
+
+<span class="c1"># The service, on the same network, with every setting from the env file</span>
+chmod<span class="w"> </span><span class="m">600</span><span class="w"> </span>~/shoes/staging.env
+podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>shoes<span class="w"> </span>--network<span class="w"> </span>catalog<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:3000:3000<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env-file<span class="w"> </span>~/shoes/staging.env<span class="w"> </span>shoes</code></pre></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Flag</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><code>--network catalog</code></td><td>both containers on one network, so the service finds the database as <code>catalog-db</code></td></tr>
+<tr><td><code>-p 127.0.0.1:3000:3000</code></td><td>publishes the container's port 3000 on the host's loopback only, like the database's port; the service listens on <code>0.0.0.0:3000</code> inside, from <code>APP_SERVER__ADDR</code></td></tr>
+<tr><td><code>--env-file …</code></td><td>every setting, <code>APP_ENVIRONMENT</code> included; <code>-e KEY=value</code> sets single ones</td></tr>
+</tbody>
+</table></div>
+<p>The service in the container and <code>cargo run</code> both want port 3000, so stop one before starting the other (<code>podman stop shoes</code>, <code>podman start shoes</code>). Now call the service from the host, then stop it:</p>
+<figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>localhost:3000/me
+<span class="go">{&quot;id&quot;:&quot;abcdefghij&quot;}</span>
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>localhost:3000/products<span class="w"> </span>-d<span class="w"> </span><span class="err">&#39;</span><span class="o">{</span><span class="s2">&quot;name&quot;</span>:<span class="s2">&quot;Trail Runner&quot;</span>,<span class="s2">&quot;brand&quot;</span>:<span class="s2">&quot;Stride&quot;</span>,<span class="s2">&quot;description&quot;</span>:<span class="s2">&quot;Grippy trail shoe&quot;</span>,
+<span class="go">    &quot;variants&quot;:[{&quot;sku&quot;:&quot;TR-GRN-42&quot;,&quot;description&quot;:&quot;Green, EU 42&quot;,&quot;priceCents&quot;:14999}],&quot;versions&quot;:[]}&#39;</span>
+<span class="go">{&quot;id&quot;:1,&quot;name&quot;:&quot;Trail Runner&quot;,&quot;brand&quot;:&quot;Stride&quot;,&quot;description&quot;:&quot;Grippy trail shoe&quot;,&quot;image&quot;:null,&quot;variants&quot;:[{&quot;id&quot;:1,&quot;sku&quot;:&quot;TR-GRN-42&quot;,&quot;description&quot;:&quot;Green, EU 42&quot;,&quot;priceCents&quot;:14999,&quot;stock&quot;:0,&quot;image&quot;:null}],&quot;versions&quot;:[],&quot;createdAt&quot;:&quot;2026-11-16T00:54:29.415749Z&quot;,&quot;updatedAt&quot;:&quot;2026-11-16T00:54:29.415749Z&quot;}</span>
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Authorization: Bearer abcdefghij&#39;</span><span class="w"> </span>localhost:3000/products/1/reviews<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-c<span class="w"> </span><span class="m">120</span>
+<span class="go">[{&quot;author&quot;:&quot;Eliseo@gardner.biz&quot;,&quot;title&quot;:&quot;id labore ex et quam laborum&quot;,&quot;body&quot;:&quot;laudantium enim quasi est quidem magnam v</span>
+<span class="gp">$ </span>podman<span class="w"> </span>top<span class="w"> </span>shoes<span class="w"> </span>user<span class="w"> </span>pid<span class="w"> </span>args
+<span class="go">USER        PID         COMMAND</span>
+<span class="go">nonroot     1           /usr/local/bin/shoes</span>
+<span class="gp">$ </span><span class="nb">time</span><span class="w"> </span>podman<span class="w"> </span>stop<span class="w"> </span>shoes
+<span class="go">shoes</span>
+
+<span class="go">real	0m0.856s</span></code></pre></figure>
+<figure class="code plain project"><figcaption><span class="code-title">podman logs shoes</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code>2026-11-16T00:54:27.401152Z  INFO shoes: settings loaded environment=&quot;staging&quot; addr=0.0.0.0:3000 max_connections=5
+2026-11-16T00:54:27.423494Z  INFO shoes: database ready
+2026-11-16T00:54:27.424424Z  INFO shoes: listening on http://0.0.0.0:3000
+2026-11-16T00:54:29.409372Z  INFO request{method=GET uri=/me version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+2026-11-16T00:54:29.420632Z  INFO request{method=POST uri=/products version=HTTP/1.1 user=&quot;abcdefghij&quot;}: shoes::products::service: product created id=1 name=Trail Runner
+2026-11-16T00:54:29.420669Z  INFO request{method=POST uri=/products version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=5 ms status=201
+2026-11-16T00:54:29.485630Z  INFO request{method=GET uri=/products/1/reviews version=HTTP/1.1 user=&quot;abcdefghij&quot;}: tower_http::trace::on_response: finished processing request latency=58 ms status=200
+2026-11-16T00:54:31.067831Z  INFO shoes: stopped</code></pre></figure>
+<p>The log shows the <code>staging</code> environment and the values from the env file: the address and five connections. The reviews request reached jsonplaceholder over HTTPS, so the CA certificates are in place. <code>podman stop</code> returned within a second, and the last line, <code>stopped</code>, shows that the graceful shutdown from Chapter 22 ran. The Bruno collection from the project's <code>integration-tests/</code> runs against the container unchanged: 39 requests and 81 tests pass. Add <code>LOG_FORMAT=json</code> to the env file and the log turns into one JSON object per line, which is what a log collector reading the container's output wants.</p>
+<aside class="callout c-os"><div class="callout-label">OS view</div><p>The exec-form <code>ENTRYPOINT</code> makes <code>/usr/local/bin/shoes</code> process 1 of the container's PID namespace (<code>podman top</code> shows it). The kernel treats PID 1 specially: a signal that the process has no handler for is ignored instead of taking its default action, so a plain SIGTERM doesn't end it. <code>podman stop</code> sends SIGTERM, waits 10 seconds, then sends SIGKILL, which can't be ignored but cuts off requests in flight. The service stops within a second because <code>shutdown_signal</code> in <code>main.rs</code> installs a SIGTERM handler, and axum then finishes the requests in flight. Kubernetes stops pods the same way, with a 30-second default grace period.</p></aside>
+<aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>The JVM installs its own SIGTERM handler, which runs the shutdown hooks; Spring Boot's <code>server.shutdown=graceful</code> waits for requests in flight from there. A Rust binary has no runtime that does this for you, which is why Chapter 22 wrote <code>shutdown_signal</code>.</p></aside>
+
+<h3 id="containers-webassembly">What about WebAssembly?</h3>
+<p>Rust also compiles to WebAssembly, and server-side WebAssembly is sometimes offered as a lighter alternative to containers. This service isn't a fit:</p>
+<ul>
+<li><strong>In the browser</strong> (<code>wasm32-unknown-unknown</code>), a program can't listen on a port or open a TCP connection to PostgreSQL. A server doesn't run there at all.</li>
+<li><strong>On a WASI runtime</strong> such as Wasmtime (<code>wasm32-wasip2</code>), Tokio's <code>full</code> features include processes and signals, which WASI doesn't have, and SQLx's PostgreSQL driver and reqwest have no supported WASI build. Platforms such as Spin or wasmCloud call a handler per request through their own HTTP and database APIs instead, so <code>main.rs</code>, the repository and the reviews client would have to be rewritten for them.</li>
+</ul>
+<p>What does fit is the code without I/O: <code>products::model</code>, <code>entity</code> and <code>validate</code> use only the standard library, serde and chrono. Moved into a crate of their own, they could be compiled for the browser, so a web frontend would validate a product with exactly the rules the server applies. For the service itself, a native binary in a container is the right tool.</p>
+
+<h3 id="containers-where-to-go-next">Where to go next</h3>
+<ul>
+<li><strong>A registry.</strong> <code>podman push</code> uploads the image to a registry such as GitHub's <code>ghcr.io</code> or Quay. Tag each image with the commit it was built from, not only <code>latest</code>.</li>
+<li><strong>Running it for real.</strong> On one Linux host, a Quadlet <code>.container</code> file lets systemd start and restart the container, with its variables in an <code>EnvironmentFile</code>. For Kubernetes, <code>podman kube generate shoes</code> writes a first manifest from the running container; the variables then come from a ConfigMap and a Secret.</li>
+<li><strong>Secrets as files.</strong> Kubernetes and <code>podman secret</code> can also mount a secret as a file, which keeps it out of <code>podman inspect</code> and out of child processes. Reading the password from a file named by a variable, such as <code>APP_DATABASE__PASSWORD_FILE</code>, would be a small change to <code>settings.rs</code>.</li>
+<li><strong>Several replicas.</strong> Each instance runs <code>migrate!</code> at start-up. SQLx takes a PostgreSQL advisory lock while it migrates, so only one applies the migrations and the others wait; the rules for safe changes from Chapter 26 still apply, because old and new versions run side by side during a rollout.</li>
+<li><strong>Health checks</strong>, a <strong>host-built binary</strong> and a <strong>fully static image</strong>: the practice tasks below.</li>
+</ul>
+
+<h3 id="containers-practice">Practice</h3>
+<ol>
+<li>Package a binary you built yourself: write a <code>Containerfile.host</code> that copies <code>target/small/shoes</code> from <code>cargo build --profile small</code> into the distroless image instead of compiling in a build stage. What must change in <code>.containerignore</code>? Why does the image work on <code>cc-debian13</code> but not on <code>cc-debian12</code>, and when is this approach the better one?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The build context has to contain the binary, so <code>.containerignore</code> lets it through as one more exception. The context stays small: the build takes about a second.</p><figure class="code plain project"><figcaption><span class="code-title">.containerignore (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/.containerignore</span>
+<span class="gi">+++ b/.containerignore</span>
+<span class="gu">@@ -7,2 +7,3 @@</span>
+<span class="w"> </span>!migrations
+<span class="w"> </span>!src
+<span class="gi">+!target/small/shoes</span></code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">Containerfile.host</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c"># The binary from `cargo build --profile small` on this machine, packaged</span>
+<span class="c"># without compiling in the image. Build: podman build -f Containerfile.host -t shoes .</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">gcr.io/distroless/cc-debian13:nonroot</span>
+<span class="k">COPY</span><span class="w"> </span>target/small/shoes<span class="w"> </span>/usr/local/bin/shoes
+<span class="k">USER</span><span class="w"> </span><span class="s">nonroot:nonroot</span>
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">3000</span>
+<span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/local/bin/shoes&quot;</span><span class="p">]</span></code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>cargo<span class="w"> </span>build<span class="w"> </span>--profile<span class="w"> </span>small
+<span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>Containerfile.host<span class="w"> </span>-t<span class="w"> </span>shoes-host<span class="w"> </span>.
+<span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>shoes-host<span class="w">                 </span><span class="c1"># starts, then stops: no settings given</span>
+<span class="go">Error: missing configuration field &quot;environment&quot;</span>
+<span class="gp">$ </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/cc-debian13/cc-debian12/&#39;</span><span class="w"> </span>Containerfile.host<span class="w">   </span><span class="c1"># try Debian 12 as the base</span>
+<span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>Containerfile.host<span class="w"> </span>-t<span class="w"> </span>shoes-host<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>podman<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>shoes-host
+<span class="go">/usr/local/bin/shoes: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.38&#39; not found (required by /usr/local/bin/shoes)</span></code></pre></figure><p><strong>Why Debian 13 but not Debian 12:</strong> the binary was linked against Ubuntu 26.04's glibc 2.43 and uses symbols up to version <code>GLIBC_2.38</code>. Debian 13 has 2.41, so the dynamic loader finds all of them; Debian 12 has 2.36, and the loader refuses before <code>main</code> runs. It works today by luck: a newer compiler, a new crate version or a host upgrade can raise the requirement, and nothing warns you until the container fails to start. The two-stage build avoids that, because the compiler and the runtime base come from the same Debian release.</p><p><strong>When it's the better choice:</strong> when the binary is already built and tested in CI, and you want to ship exactly that file. Then build it in CI in the image's distribution (for example in <code>rust:1.100-slim-trixie</code>), or make it static (task 3), so the glibc question doesn't come up.</p></div></details></li>
+<li>Add a public <code>GET /health</code> that answers <code>{"status":"UP"}</code> without a token and without a line in the log, and make Podman report the container as healthy. The image has no shell and no curl: what runs the check? Why shouldn't this check query the database?<details class="solution"><summary>Solution</summary><div class="solution-body"><p>The route is added in <code>app()</code> after the trace layer. A layer wraps only the routes added before it, so <code>/health</code> passes neither the token check nor the trace layer: it needs no token, and a probe every few seconds doesn't fill the log.</p><figure class="code plain project"><figcaption><span class="code-title">src/lib.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/lib.rs</span>
+<span class="gi">+++ b/src/lib.rs</span>
+<span class="gu">@@ -2,5 +2,7 @@</span>
+<span class="w"> </span>//! tests in tests/ call the same `app`.
+<span class="w"> </span>use axum::extract::Request;
+<span class="gd">-use axum::{Router, middleware};</span>
+<span class="gi">+use axum::routing::get;</span>
+<span class="gi">+use axum::{Json, Router, middleware};</span>
+<span class="gi">+use serde_json::{Value, json};</span>
+<span class="w"> </span>use tower_http::trace::{DefaultOnResponse, TraceLayer};
+<span class="w"> </span>use tracing::{Level, Span, field};
+<span class="gu">@@ -25,5 +27,7 @@</span>
+<span class="w"> </span>///   latency), including the 401s. Events logged while handling a request
+<span class="w"> </span>///   happen inside its span, so they carry its method and URI too, and,
+<span class="gd">-///   once the token check has filled it in, the user.</span>
+<span class="gi">+///   once the token check has filled it in, the user;</span>
+<span class="gi">+/// - `GET /health` is added after both, so it needs no token and isn&#x27;t</span>
+<span class="gi">+///   logged: a container runtime calls it every few seconds.</span>
+<span class="w"> </span>pub fn app(products: ProductService) -&gt; Router {
+<span class="w"> </span>    products::router(products)
+<span class="gu">@@ -35,4 +39,11 @@</span>
+<span class="w"> </span>                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+<span class="w"> </span>        )
+<span class="gi">+        .route(&quot;/health&quot;, get(health))</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="gi">+/// Liveness: the process is up and answers HTTP. It doesn&#x27;t check the</span>
+<span class="gi">+/// database, so a database outage doesn&#x27;t get every instance restarted.</span>
+<span class="gi">+async fn health() -&gt; Json&lt;Value&gt; {</span>
+<span class="gi">+    Json(json!({ &quot;status&quot;: &quot;UP&quot; }))</span>
+<span class="w"> </span>}
+<span class="w"> </span></code></pre></figure><p>The image has no shell and no curl, so the binary checks itself: with the argument <code>healthcheck</code>, <code>main</code> sends one request to <code>/health</code> on its own port and returns. An error from <code>main</code> ends the process with exit code 1, which is what a health check reports as unhealthy. It finds the port by loading the settings, from the same variables as the service, since a health check runs inside the container with the container's environment. It runs before <code>init_tracing</code>, so a check logs nothing.</p><figure class="code plain project"><figcaption><span class="code-title">src/main.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/src/main.rs</span>
+<span class="gi">+++ b/src/main.rs</span>
+<span class="gu">@@ -3,4 +3,5 @@</span>
+<span class="w"> </span>use std::env;
+<span class="w"> </span>use std::error::Error;
+<span class="gi">+use std::time::Duration;</span>
+<span class="w"> </span>
+<span class="w"> </span>use secrecy::ExposeSecret;
+<span class="gu">@@ -49,6 +50,23 @@</span>
+<span class="w"> </span>}
+<span class="w"> </span>
+<span class="gi">+/// `shoes healthcheck`: succeeds if the service on this machine (in a</span>
+<span class="gi">+/// container: in this container) answers `GET /health`. The runtime image</span>
+<span class="gi">+/// has no shell and no curl, so the binary checks itself.</span>
+<span class="gi">+async fn healthcheck() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {</span>
+<span class="gi">+    let port = Settings::load()?.server.addr.port();</span>
+<span class="gi">+    reqwest::Client::new()</span>
+<span class="gi">+        .get(format!(&quot;http://127.0.0.1:{port}/health&quot;))</span>
+<span class="gi">+        .timeout(Duration::from_secs(2))</span>
+<span class="gi">+        .send()</span>
+<span class="gi">+        .await?</span>
+<span class="gi">+        .error_for_status()?;</span>
+<span class="gi">+    Ok(())</span>
+<span class="gi">+}</span>
+<span class="gi">+</span>
+<span class="w"> </span>#[tokio::main]
+<span class="w"> </span>async fn main() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+<span class="gi">+    if env::args().nth(1).as_deref() == Some(&quot;healthcheck&quot;) {</span>
+<span class="gi">+        return healthcheck().await;</span>
+<span class="gi">+    }</span>
+<span class="w"> </span>    init_tracing();
+<span class="w"> </span>    let settings = Settings::load()?;</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">tests/auth.rs (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/tests/auth.rs</span>
+<span class="gi">+++ b/tests/auth.rs</span>
+<span class="gu">@@ -89,2 +89,9 @@</span>
+<span class="w"> </span>    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+<span class="w"> </span>}
+<span class="gi">+</span>
+<span class="gi">+#[sqlx::test]</span>
+<span class="gi">+async fn health_needs_no_token(pool: PgPool) {</span>
+<span class="gi">+    let (status, _, body) = get(&amp;app(pool), &quot;/health&quot;, None).await;</span>
+<span class="gi">+    assert_eq!(status, StatusCode::OK);</span>
+<span class="gi">+    assert_eq!(body, json!({ &quot;status&quot;: &quot;UP&quot; }));</span>
+<span class="gi">+}</span></code></pre><div class="out"><div class="out-label">Test output</div><pre>$ cargo test
+     Running unittests src/lib.rs
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/api.rs
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+     Running tests/auth.rs
+test a_route_outside_the_token_check_has_no_user ... ok
+test health_needs_no_token ... ok
+test requests_without_a_valid_token_get_401 ... ok
+test an_unknown_path_is_404_even_without_a_token ... ok
+test me_names_the_caller ... ok
+test a_valid_token_gets_through ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
+     Running tests/migrations.rs
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+     Running tests/reviews.rs
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+   Doc-tests shoes
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s</pre></div></figure><figure class="code plain project"><figcaption><span class="code-title">Containerfile (changes)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/Containerfile</span>
+<span class="gi">+++ b/Containerfile</span>
+<span class="gu">@@ -40,3 +40,4 @@</span>
+<span class="w"> </span>USER nonroot:nonroot
+<span class="w"> </span>EXPOSE 3000
+<span class="gi">+HEALTHCHECK --interval=10s --timeout=3s CMD [&quot;/usr/local/bin/shoes&quot;, &quot;healthcheck&quot;]</span>
+<span class="w"> </span>ENTRYPOINT [&quot;/usr/local/bin/shoes&quot;]</code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>--format<span class="w"> </span>docker<span class="w"> </span>-t<span class="w"> </span>shoes<span class="w"> </span>.
+<span class="gp">$ </span>podman<span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>shoes
+<span class="gp">$ </span>podman<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>shoes<span class="w"> </span>--network<span class="w"> </span>catalog<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:3000:3000<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env-file<span class="w"> </span>~/shoes/staging.env<span class="w"> </span>shoes
+<span class="gp">$ </span>podman<span class="w"> </span>ps<span class="w"> </span>--filter<span class="w"> </span><span class="nv">name</span><span class="o">=</span>shoes<span class="w"> </span>--format<span class="w"> </span><span class="s1">&#39;{{.Names}} {{.Status}}&#39;</span>
+<span class="go">shoes Up 13 seconds (healthy)</span>
+<span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>localhost:3000/health
+<span class="go">{&quot;status&quot;:&quot;UP&quot;}</span></code></pre></figure><p><code>--format docker</code> matters. Podman builds OCI images by default, and the OCI image format has no field for a health check, so a plain <code>podman build</code> warns <code>HEALTHCHECK is not supported for OCI image format and will be ignored</code> and the container never becomes <code>healthy</code>. The alternative is to leave the image alone and pass <code>--health-cmd '["/usr/local/bin/shoes", "healthcheck"]'</code> to <code>podman run</code>. Kubernetes ignores <code>HEALTHCHECK</code> altogether: its probes call <code>GET /health</code> over HTTP themselves, so there the endpoint is all you need.</p><p><strong>Why not check the database:</strong> a failing liveness check gets the container restarted. If the database goes down, every instance would fail its check and be restarted, over and over, and none of that brings the database back. Dependencies belong in a separate <em>readiness</em> check, which only takes the instance out of load balancing until it can work again. Spring Boot Actuator separates the two the same way, as its liveness and readiness health groups.</p></div></details></li>
+<li>Build a fully static binary and ship it <code>FROM scratch</code>, an image with nothing in it but your files. Use <code>docker.io/library/rust:1.100-alpine</code> for the build stage. What does the service need that the distroless image used to provide? Compare the image sizes, and name a cost of musl.<details class="solution"><summary>Solution</summary><div class="solution-body"><p>On Alpine Linux, Rust's native target is <code>x86_64-unknown-linux-musl</code>, and musl binaries are linked statically by default, so the same <code>cargo build</code> produces a binary that needs no shared libraries at all. <code>scratch</code> is the empty image, so everything distroless provided has to be added by hand: of glibc, the CA certificates and the user database, the service only needs the certificates, and the user becomes a number.</p><figure class="code plain project"><figcaption><span class="code-title">Containerfile.static</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c"># Stage 1: on Alpine, Rust&#39;s host target is x86_64-unknown-linux-musl, whose</span>
+<span class="c"># binaries are statically linked by default.</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">docker.io/library/rust:1.100-alpine</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/src</span>
+<span class="k">COPY</span><span class="w"> </span>Cargo.toml<span class="w"> </span>Cargo.lock<span class="w"> </span>./
+<span class="k">COPY</span><span class="w"> </span>.sqlx<span class="w"> </span>.sqlx
+<span class="k">COPY</span><span class="w"> </span>migrations<span class="w"> </span>migrations
+<span class="k">COPY</span><span class="w"> </span>src<span class="w"> </span>src
+<span class="k">ENV</span><span class="w"> </span><span class="nv">SQLX_OFFLINE</span><span class="o">=</span><span class="nb">true</span>
+<span class="k">ARG</span><span class="w"> </span><span class="nv">CARGO_PROFILE</span><span class="o">=</span>small
+<span class="c"># Own cache ids: musl artifacts mustn&#39;t share a cache with the glibc build.</span>
+<span class="k">RUN</span><span class="w"> </span>--mount<span class="o">=</span><span class="nv">type</span><span class="o">=</span>cache,id<span class="o">=</span>shoes-musl-registry,target<span class="o">=</span>/usr/local/cargo/registry<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mount<span class="o">=</span><span class="nv">type</span><span class="o">=</span>cache,id<span class="o">=</span>shoes-musl-target,target<span class="o">=</span>/src/target<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>cargo<span class="w"> </span>build<span class="w"> </span>--locked<span class="w"> </span>--profile<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">dir</span><span class="o">=</span><span class="k">$(</span><span class="o">[</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>dev<span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>debug<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CARGO_PROFILE</span><span class="s2">&quot;</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span>cp<span class="w"> </span><span class="s2">&quot;target/</span><span class="nv">$dir</span><span class="s2">/shoes&quot;</span><span class="w"> </span>/usr/local/bin/shoes
+
+<span class="c"># Stage 2: an empty image. The binary needs nothing but the kernel, plus the</span>
+<span class="c"># CA certificates for its HTTPS calls to the reviews service.</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">scratch</span>
+<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build<span class="w"> </span>/etc/ssl/certs/ca-certificates.crt<span class="w"> </span>/etc/ssl/certs/
+<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build<span class="w"> </span>/usr/local/bin/shoes<span class="w"> </span>/usr/local/bin/shoes
+<span class="c"># scratch has no /etc/passwd, so the user is a number</span>
+<span class="k">USER</span><span class="w"> </span><span class="s">65532:65532</span>
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">3000</span>
+<span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/local/bin/shoes&quot;</span><span class="p">]</span></code></pre></figure><figure class="code plain project"><figcaption><span class="code-title">terminal</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gp">$ </span>podman<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>Containerfile.static<span class="w"> </span>-t<span class="w"> </span>shoes-static<span class="w"> </span>.
+<span class="gp">$ </span>podman<span class="w"> </span>images<span class="w"> </span>--format<span class="w"> </span><span class="s1">&#39;{{.Repository}} {{.Size}}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>shoes
+<span class="go">localhost/shoes-static 6.06 MB</span>
+<span class="go">localhost/shoes 35 MB</span>
+<span class="gp">$ </span>file<span class="w"> </span>shoes<span class="w">     </span><span class="c1"># the binary, copied out with podman cp</span>
+<span class="go">shoes: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), static-pie linked, stripped</span></code></pre></figure><p>The image is the binary (5.9 MB) and the certificate bundle, and the Bruno collection passes against it, reviews included. Leave out the <code>ca-certificates.crt</code> line and the container exits at start-up with <code>No CA certificates were loaded from the system</code>.</p><p>The trade-offs: musl's memory allocator is simple and can be noticeably slower than glibc's under many threads, so static Rust services often set a different global allocator such as mimalloc with <code>#[global_allocator]</code>. There is nothing in the image to debug with (as with distroless), no time zone data (the service logs in UTC and doesn't need any) and no user names. Twenty-nine megabytes of base image rarely matter, since layers are shared and cached; choose <code>scratch</code> when you want nothing in the image you didn't put there.</p></div></details></li>
 </ol>
 
 <footer class="ch-foot"><a class="next-ch" href="#appa-shared-ownership"><span>Next · Appendix A</span>Single-Threaded Shared Ownership: Rc, Weak, Cell &amp; RefCell</a></footer></section>
