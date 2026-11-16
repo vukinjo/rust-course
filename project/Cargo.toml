@@ -12,18 +12,19 @@ reqwest = { version = "0.13.5", features = ["json", "query"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "macros", "migrate", "chrono"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "macros", "migrate", "chrono", "uuid"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.7.1", features = ["trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+uuid = { version = "1.29.2", features = ["serde", "v7"] }
 
 [dev-dependencies]
 http-body-util = "0.1.5"
 tower = { version = "0.5", features = ["util"] }
 
 # A release build optimized for size: `cargo build --profile small` writes
-# target/small/shoes, about 5.7 MB instead of 15 MB for --release. The code is
+# target/small/shoes, about 5.8 MB instead of 15 MB for --release. The code is
 # somewhat slower than opt-level 3, which this I/O-bound service doesn't notice,
 # and crash backtraces lose their function names.
 [profile.small]

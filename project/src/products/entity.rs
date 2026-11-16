@@ -10,6 +10,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, Utc};
+use uuid::Uuid;
 
 /// The image formats the service accepts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,7 +108,7 @@ impl Image {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VariantEntity {
-    pub id: i64,
+    pub id: Uuid,
     pub sku: String,
     pub description: String, // colour, print, size: anything that varies
     pub price_cents: i64,
@@ -119,7 +120,7 @@ pub struct VariantEntity {
 /// and a variant can be offered by several releases: many-to-many.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VersionEntity {
-    pub id: i64,
+    pub id: Uuid,
     pub number: i32,
     pub notes: String,
     pub released_on: NaiveDate, // a date without a time zone
@@ -128,7 +129,7 @@ pub struct VersionEntity {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProductEntity {
-    pub id: i64,
+    pub id: Uuid,
     pub name: String,
     pub brand: String,
     pub description: String,

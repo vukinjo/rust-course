@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/products/9223372036854775807
+  url: {{baseUrl}}/products/00000000-0000-7000-8000-000000000000
   body: none
   auth: inherit
 }
@@ -16,6 +16,6 @@ tests {
   });
 
   test("says which product is missing", function () {
-    expect(res.getBody().error).to.equal("product 9223372036854775807 not found");
+    expect(res.getBody().error).to.equal("product 00000000-0000-7000-8000-000000000000 not found");
   });
 }

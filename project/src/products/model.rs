@@ -5,6 +5,7 @@
 //! them.
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// The body of `POST /products`. Fields marked `default` may be left out;
 /// an unknown field, such as a misspelled `pricecents`, is an error instead
@@ -82,7 +83,7 @@ pub struct ProductFilter {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductResponse {
-    pub id: i64,
+    pub id: Uuid,
     pub name: String,
     pub brand: String,
     pub description: String,
@@ -96,7 +97,7 @@ pub struct ProductResponse {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VariantResponse {
-    pub id: i64,
+    pub id: Uuid,
     pub sku: String,
     pub description: String,
     pub price_cents: i64,
@@ -107,7 +108,7 @@ pub struct VariantResponse {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionResponse {
-    pub id: i64,
+    pub id: Uuid,
     pub number: i32,
     pub notes: String,
     pub released_on: NaiveDate, // "2026-03-01" in JSON

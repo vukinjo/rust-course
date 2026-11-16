@@ -11,6 +11,7 @@ mod repo; // private: only the service can use the repository
 
 use sqlx::{PgConnection, PgPool};
 use tracing::info;
+use uuid::Uuid;
 
 use super::entity::{Image, ProductEntity, ProductInput};
 use super::model::ProductFilter;
@@ -38,7 +39,7 @@ impl ProductService {
         repo::load(&mut conn, &ids).await
     }
 
-    pub async fn get(&self, id: i64) -> Result<ProductEntity, CatalogError> {
+    pub async fn get(&self, id: Uuid) -> Result<ProductEntity, CatalogError> {
         let mut conn = self.pool.acquire().await?;
         load_one(&mut conn, id).await
     }
@@ -51,7 +52,7 @@ impl ProductService {
         repo::replace_versions(&mut tx, id, &input.versions).await?;
         let product = load_one(&mut tx, id).await?;
         tx.commit().await?;
-        info!(id, name = %product.name, "product created");
+        info!(%id, name = %product.name, "product created");
         Ok(product)
     }
 
@@ -59,7 +60,7 @@ impl ProductService {
     /// row, so its id and image; versions are rebuilt.
     pub async fn update(
         &self,
-        id: i64,
+        id: Uuid,
         input: ProductInput,
     ) -> Result<ProductEntity, CatalogError> {
         validate(&input)?;
@@ -71,55 +72,55 @@ impl ProductService {
         repo::replace_versions(&mut tx, id, &input.versions).await?;
         let product = load_one(&mut tx, id).await?;
         tx.commit().await?;
-        info!(id, variants = product.variants.len(), "product updated");
+        info!(%id, variants = product.variants.len(), "product updated");
         Ok(product)
     }
 
-    pub async fn delete(&self, id: i64) -> Result<(), CatalogError> {
+    pub async fn delete(&self, id: Uuid) -> Result<(), CatalogError> {
         let mut conn = self.pool.acquire().await?;
         if !repo::delete_product(&mut conn, id).await? {
             return Err(CatalogError::NotFound(id));
         }
-        info!(id, "product deleted");
+        info!(%id, "product deleted");
         Ok(())
     }
 
     /// The product's reviews, from the reviews service. An unknown product
     /// is "not found" without a call to that service.
-    pub async fn reviews(&self, id: i64) -> Result<Vec<Review>, CatalogError> {
+    pub async fn reviews(&self, id: Uuid) -> Result<Vec<Review>, CatalogError> {
         self.get(id).await?;
         Ok(self.reviews.for_product(id).await?)
     }
 
-    pub async fn set_product_image(&self, id: i64, image: Image) -> Result<(), CatalogError> {
+    pub async fn set_product_image(&self, id: Uuid, image: Image) -> Result<(), CatalogError> {
         let mut conn = self.pool.acquire().await?;
         if !repo::set_product_image(&mut conn, id, &image).await? {
             return Err(CatalogError::NotFound(id));
         }
         let (kind, size) = (image.content_type, image.bytes.len());
-        info!(id, %kind, size, "product image stored");
+        info!(%id, %kind, size, "product image stored");
         Ok(())
     }
 
-    pub async fn product_image(&self, id: i64) -> Result<Image, CatalogError> {
+    pub async fn product_image(&self, id: Uuid) -> Result<Image, CatalogError> {
         let mut conn = self.pool.acquire().await?;
         repo::product_image(&mut conn, id).await
     }
 
     pub async fn set_variant_image(
         &self,
-        id: i64,
+        id: Uuid,
         sku: &str,
         image: Image,
     ) -> Result<(), CatalogError> {
         let mut conn = self.pool.acquire().await?;
         repo::set_variant_image(&mut conn, id, sku, &image).await?;
         let (kind, size) = (image.content_type, image.bytes.len());
-        info!(id, sku, %kind, size, "variant image stored");
+        info!(%id, sku, %kind, size, "variant image stored");
         Ok(())
     }
 
-    pub async fn variant_image(&self, id: i64, sku: &str) -> Result<Image, CatalogError> {
+    pub async fn variant_image(&self, id: Uuid, sku: &str) -> Result<Image, CatalogError> {
         let mut conn = self.pool.acquire().await?;
         repo::variant_image(&mut conn, id, sku).await
     }
@@ -127,7 +128,7 @@ impl ProductService {
 
 /// One product, on whatever connection the caller has: inside a write's
 /// transaction, it sees that transaction's uncommitted rows.
-async fn load_one(conn: &mut PgConnection, id: i64) -> Result<ProductEntity, CatalogError> {
+async fn load_one(conn: &mut PgConnection, id: Uuid) -> Result<ProductEntity, CatalogError> {
     let mut products = repo::load(conn, &[id]).await?;
     products.pop().ok_or(CatalogError::NotFound(id))
 }

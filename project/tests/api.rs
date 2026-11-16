@@ -10,6 +10,7 @@ use common::{PNG, app, call, send};
 use serde_json::{Value, json};
 use shoes::products::MAX_BODY_BYTES;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 fn trail_runner() -> Value {
     json!({
@@ -31,14 +32,15 @@ async fn create_then_get(pool: PgPool) {
     let app = app(pool);
     let (status, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
     assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(created["id"], 1);
-    assert_eq!(created["variants"][1]["id"], 2);
+    let id = created["id"].as_str().unwrap();
+    assert_eq!(Uuid::parse_str(id).unwrap().get_version_num(), 7);
+    assert_ne!(created["variants"][0]["id"], created["variants"][1]["id"]);
     assert_eq!(
         created["versions"][1]["variantSkus"],
         json!(["TRX-BLK-42", "TRX-VOLT-42"])
     );
 
-    let (status, fetched) = call(&app, "GET", "/products/1", None).await;
+    let (status, fetched) = call(&app, "GET", &format!("/products/{id}"), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(fetched, created);
 }
@@ -46,9 +48,15 @@ async fn create_then_get(pool: PgPool) {
 #[sqlx::test]
 async fn errors_have_a_status_and_a_message(pool: PgPool) {
     let app = app(pool);
-    let (status, body) = call(&app, "GET", "/products/7", None).await;
+    let missing = Uuid::now_v7();
+    let (status, body) = call(&app, "GET", &format!("/products/{missing}"), None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body, json!({"error": "product 7 not found"}));
+    assert_eq!(
+        body,
+        json!({"error": format!("product {missing} not found")})
+    );
+    let (status, _) = call(&app, "GET", "/products/7", None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST); // not a UUID
 
     let mut invalid = trail_runner();
     invalid["variants"][0]["priceCents"] = json!(0);
@@ -101,74 +109,80 @@ async fn list_filters_by_query_parameters(pool: PgPool) {
 #[sqlx::test]
 async fn update_replaces_the_product_and_keeps_known_variants(pool: PgPool) {
     let app = app(pool);
-    call(&app, "POST", "/products", Some(trail_runner())).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let volt_42 = &created["variants"][1]["id"];
     let mut changed = trail_runner();
     changed["variants"] = json!([
         {"sku": "TRX-VOLT-42", "description": "Volt, EU 42", "priceCents": 11999},
         {"sku": "TRX-VOLT-43", "description": "Volt, EU 43", "priceCents": 11999}
     ]);
     changed["versions"] = json!([]);
-    let (status, updated) = call(&app, "PUT", "/products/1", Some(changed.clone())).await;
+    let (status, updated) = call(&app, "PUT", &uri, Some(changed.clone())).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(updated["variants"][0]["id"], 2); // TRX-VOLT-42 kept its id
+    assert_eq!(&updated["variants"][0]["id"], volt_42); // TRX-VOLT-42 kept its id
     assert_eq!(updated["variants"][0]["priceCents"], 11999);
-    // A new row. Its id isn't 3: the upsert of TRX-VOLT-42 used up 3 from
-    // the sequence before it found the conflict. Ids are unique, not gapless.
-    assert!(updated["variants"][1]["id"].as_i64().unwrap() > 3);
+    assert_ne!(&updated["variants"][1]["id"], volt_42); // a new row
     assert_eq!(updated["versions"], json!([]));
 
-    let (status, _) = call(&app, "PUT", "/products/9", Some(changed)).await;
+    let missing = format!("/products/{}", Uuid::now_v7());
+    let (status, _) = call(&app, "PUT", &missing, Some(changed)).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
 async fn delete_answers_204_then_404(pool: PgPool) {
     let app = app(pool);
-    call(&app, "POST", "/products", Some(trail_runner())).await;
-    let (status, body) = call(&app, "DELETE", "/products/1", None).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let (status, body) = call(&app, "DELETE", &uri, None).await;
     assert_eq!((status, body), (StatusCode::NO_CONTENT, Value::Null));
-    let (status, _) = call(&app, "DELETE", "/products/1", None).await;
+    let (status, _) = call(&app, "DELETE", &uri, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
 async fn images_upload_and_download_as_raw_bytes(pool: PgPool) {
     let app = app(pool);
-    call(&app, "POST", "/products", Some(trail_runner())).await;
-    let (status, _, _) = send(&app, "GET", "/products/1/image", Body::empty()).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let product_uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let image_uri = format!("{product_uri}/image");
+    let (status, _, _) = send(&app, "GET", &image_uri, Body::empty()).await;
     assert_eq!(status, StatusCode::NOT_FOUND); // nothing uploaded yet
 
-    let (status, _, _) = send(&app, "PUT", "/products/1/image", Body::from(PNG)).await;
+    let (status, _, _) = send(&app, "PUT", &image_uri, Body::from(PNG)).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, content_type, bytes) = send(&app, "GET", "/products/1/image", Body::empty()).await;
+    let (status, content_type, bytes) = send(&app, "GET", &image_uri, Body::empty()).await;
     assert_eq!(
         (status, content_type.as_str(), bytes.as_slice()),
         (StatusCode::OK, "image/png", PNG)
     );
-    let (_, product) = call(&app, "GET", "/products/1", None).await;
+    let (_, product) = call(&app, "GET", &product_uri, None).await;
     assert_eq!(
         product["image"],
         json!({"contentType": "image/png", "size": PNG.len()})
     );
 
-    let uri = "/products/1/variants/TRX-VOLT-42/image";
-    let (status, _, _) = send(&app, "PUT", uri, Body::from(PNG)).await;
+    let uri = format!("{product_uri}/variants/TRX-VOLT-42/image");
+    let (status, _, _) = send(&app, "PUT", &uri, Body::from(PNG)).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    let (_, _, bytes) = send(&app, "GET", uri, Body::empty()).await;
+    let (_, _, bytes) = send(&app, "GET", &uri, Body::empty()).await;
     assert_eq!(bytes, PNG);
 }
 
 #[sqlx::test]
 async fn bad_uploads_are_rejected(pool: PgPool) {
     let app = app(pool);
-    call(&app, "POST", "/products", Some(trail_runner())).await;
-    let (status, _, _) = send(&app, "PUT", "/products/1/image", Body::from("hello")).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let product_uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let image_uri = format!("{product_uri}/image");
+    let (status, _, _) = send(&app, "PUT", &image_uri, Body::from("hello")).await;
     assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
-    let uri = "/products/1/variants/NOPE/image";
-    let (status, _, _) = send(&app, "PUT", uri, Body::from(PNG)).await;
+    let uri = format!("{product_uri}/variants/NOPE/image");
+    let (status, _, _) = send(&app, "PUT", &uri, Body::from(PNG)).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let too_big = vec![0u8; MAX_BODY_BYTES + 1];
-    let (status, _, _) = send(&app, "PUT", "/products/1/image", Body::from(too_big)).await;
+    let (status, _, _) = send(&app, "PUT", &image_uri, Body::from(too_big)).await;
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
 }
 
@@ -201,7 +215,8 @@ async fn a_sku_belongs_to_one_product(pool: PgPool) {
 #[sqlx::test]
 async fn delete_cascades_to_variants_versions_and_links(pool: PgPool) {
     let app = app(pool.clone());
-    call(&app, "POST", "/products", Some(trail_runner())).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let uri = format!("/products/{}", created["id"].as_str().unwrap());
     // sqlx 0.9 accepts only literal SQL (`&'static str`), a guard against
     // SQL injection, so each count is its own literal
     let count = |sql: &'static str| {
@@ -215,7 +230,7 @@ async fn delete_cascades_to_variants_versions_and_links(pool: PgPool) {
     };
     let links = "SELECT count(*) FROM version_variants";
     assert_eq!(count(links).await, 3); // v1 offers 1 variant, v2 offers 2
-    call(&app, "DELETE", "/products/1", None).await;
+    call(&app, "DELETE", &uri, None).await;
     for sql in [
         "SELECT count(*) FROM products",
         "SELECT count(*) FROM variants",
@@ -231,7 +246,8 @@ async fn timestamps_come_from_the_database(pool: PgPool) {
     let app = app(pool);
     let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
     assert_eq!(created["createdAt"], created["updatedAt"]);
-    let (_, updated) = call(&app, "PUT", "/products/1", Some(trail_runner())).await;
+    let uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let (_, updated) = call(&app, "PUT", &uri, Some(trail_runner())).await;
     assert_eq!(updated["createdAt"], created["createdAt"]);
     assert_ne!(updated["updatedAt"], created["updatedAt"]);
 }
@@ -239,12 +255,13 @@ async fn timestamps_come_from_the_database(pool: PgPool) {
 #[sqlx::test]
 async fn an_update_keeps_the_image_of_a_kept_variant(pool: PgPool) {
     let app = app(pool);
-    call(&app, "POST", "/products", Some(trail_runner())).await;
-    let uri = "/products/1/variants/TRX-VOLT-42/image";
-    send(&app, "PUT", uri, Body::from(PNG)).await;
-    let (status, _) = call(&app, "PUT", "/products/1", Some(trail_runner())).await;
+    let (_, created) = call(&app, "POST", "/products", Some(trail_runner())).await;
+    let product_uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let uri = format!("{product_uri}/variants/TRX-VOLT-42/image");
+    send(&app, "PUT", &uri, Body::from(PNG)).await;
+    let (status, _) = call(&app, "PUT", &product_uri, Some(trail_runner())).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, _, bytes) = send(&app, "GET", uri, Body::empty()).await;
+    let (status, _, bytes) = send(&app, "GET", &uri, Body::empty()).await;
     assert_eq!((status, bytes.as_slice()), (StatusCode::OK, PNG));
 }
 
@@ -259,7 +276,8 @@ async fn stock_is_saved_defaults_to_zero_and_cant_be_negative(pool: PgPool) {
     assert_eq!(created["variants"][1]["stock"], 0);
 
     product["variants"][0]["stock"] = json!(-1);
-    let (status, body) = call(&app, "PUT", "/products/1", Some(product)).await;
+    let uri = format!("/products/{}", created["id"].as_str().unwrap());
+    let (status, body) = call(&app, "PUT", &uri, Some(product)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
         body["error"],

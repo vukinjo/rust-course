@@ -1,0 +1,25 @@
+meta {
+  name: Get product with an id that is not a UUID
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/products/42
+  body: none
+  auth: inherit
+}
+
+docs {
+  Ids are UUIDs, so `42` cannot be one: the `Path` extractor refuses the request before the handler runs.
+}
+
+tests {
+  test("returns 400 Bad Request", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+
+  test("names the problem in plain text", function () {
+    expect(res.getBody()).to.contain("UUID parsing failed");
+  });
+}

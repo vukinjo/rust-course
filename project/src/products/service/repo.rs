@@ -9,6 +9,7 @@
 use std::collections::HashMap;
 
 use sqlx::PgConnection;
+use uuid::Uuid;
 
 use crate::error::CatalogError;
 use crate::products::entity::{
@@ -18,13 +19,14 @@ use crate::products::model::ProductFilter;
 
 // ------------------------------------------------------------------ reads
 
-/// The ids of the products that match the filter, in id order. A NULL
+/// The ids of the products that match the filter, in id order, which is
+/// the order of creation because each id is a UUIDv7. A NULL
 /// parameter switches its condition off, so one query serves every
 /// combination of filters.
 pub async fn find_ids(
     conn: &mut PgConnection,
     filter: &ProductFilter,
-) -> Result<Vec<i64>, CatalogError> {
+) -> Result<Vec<Uuid>, CatalogError> {
     let ids = sqlx::query_scalar!(
         r#"
         SELECT p.id FROM products p
@@ -52,7 +54,7 @@ pub async fn find_ids(
 /// put together in Rust.
 pub async fn load(
     conn: &mut PgConnection,
-    ids: &[i64],
+    ids: &[Uuid],
 ) -> Result<Vec<ProductEntity>, CatalogError> {
     let products = sqlx::query!(
         "SELECT id, name, brand, description, image, image_type, created_at, updated_at
@@ -85,11 +87,11 @@ pub async fn load(
     .fetch_all(&mut *conn)
     .await?;
 
-    let mut skus: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut skus: HashMap<Uuid, Vec<String>> = HashMap::new();
     for link in link_rows {
         skus.entry(link.version_id).or_default().push(link.sku);
     }
-    let mut variants: HashMap<i64, Vec<VariantEntity>> = HashMap::new();
+    let mut variants: HashMap<Uuid, Vec<VariantEntity>> = HashMap::new();
     for row in variant_rows {
         variants
             .entry(row.product_id)
@@ -103,7 +105,7 @@ pub async fn load(
                 image: image(row.image, row.image_type),
             });
     }
-    let mut versions: HashMap<i64, Vec<VersionEntity>> = HashMap::new();
+    let mut versions: HashMap<Uuid, Vec<VersionEntity>> = HashMap::new();
     for row in version_rows {
         versions
             .entry(row.product_id)
@@ -132,7 +134,7 @@ pub async fn load(
         .collect())
 }
 
-pub async fn product_image(conn: &mut PgConnection, id: i64) -> Result<Image, CatalogError> {
+pub async fn product_image(conn: &mut PgConnection, id: Uuid) -> Result<Image, CatalogError> {
     let row = sqlx::query!("SELECT image, image_type FROM products WHERE id = $1", id)
         .fetch_optional(&mut *conn)
         .await?
@@ -142,7 +144,7 @@ pub async fn product_image(conn: &mut PgConnection, id: i64) -> Result<Image, Ca
 
 pub async fn variant_image(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     sku: &str,
 ) -> Result<Image, CatalogError> {
     let row = sqlx::query!(
@@ -163,7 +165,7 @@ pub async fn variant_image(
 pub async fn insert_product(
     conn: &mut PgConnection,
     input: &ProductInput,
-) -> Result<i64, CatalogError> {
+) -> Result<Uuid, CatalogError> {
     sqlx::query_scalar!(
         "INSERT INTO products (name, brand, description) VALUES ($1, $2, $3) RETURNING id",
         input.name,
@@ -178,7 +180,7 @@ pub async fn insert_product(
 /// Updates the product row. False if there's no product with this id.
 pub async fn update_product(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     input: &ProductInput,
 ) -> Result<bool, CatalogError> {
     let updated = sqlx::query!(
@@ -197,7 +199,7 @@ pub async fn update_product(
 
 /// Deletes the product. The foreign keys' ON DELETE CASCADE removes its
 /// variants, versions and version_variants rows. False if there was none.
-pub async fn delete_product(conn: &mut PgConnection, id: i64) -> Result<bool, CatalogError> {
+pub async fn delete_product(conn: &mut PgConnection, id: Uuid) -> Result<bool, CatalogError> {
     let deleted = sqlx::query!("DELETE FROM products WHERE id = $1", id)
         .execute(&mut *conn)
         .await?;
@@ -210,7 +212,7 @@ pub async fn delete_product(conn: &mut PgConnection, id: i64) -> Result<bool, Ca
 ///    variant keeps its row: its id and its image.
 pub async fn save_variants(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     variants: &[VariantInput],
 ) -> Result<(), CatalogError> {
     let skus: Vec<String> = variants.iter().map(|v| v.sku.clone()).collect();
@@ -225,8 +227,8 @@ pub async fn save_variants(
     for variant in variants {
         // If the SKU exists, update it, but only if it belongs to this
         // product. Otherwise no row is returned: the SKU is someone else's.
-        // (Each attempt takes a number from the id sequence, even when it ends
-        // up updating, so ids can have gaps.)
+        // An updated row keeps its id: the default uuidv7() fills in only the
+        // id of a row that is inserted.
         let saved = sqlx::query_scalar!(
             "INSERT INTO variants (product_id, sku, description, price_cents, stock)
              VALUES ($1, $2, $3, $4, $5)
@@ -254,7 +256,7 @@ pub async fn save_variants(
 /// variants: the many-to-many relation, one row per (version, variant).
 pub async fn replace_versions(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     versions: &[VersionInput],
 ) -> Result<(), CatalogError> {
     // Deleting the versions also deletes their links (ON DELETE CASCADE)
@@ -288,7 +290,7 @@ pub async fn replace_versions(
 /// Stores or replaces the product's image. False if there's no such product.
 pub async fn set_product_image(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     image: &Image,
 ) -> Result<bool, CatalogError> {
     let updated = sqlx::query!(
@@ -304,7 +306,7 @@ pub async fn set_product_image(
 
 pub async fn set_variant_image(
     conn: &mut PgConnection,
-    id: i64,
+    id: Uuid,
     sku: &str,
     image: &Image,
 ) -> Result<(), CatalogError> {
@@ -325,7 +327,7 @@ pub async fn set_variant_image(
 
 // ------------------------------------------------------------------ helpers
 
-fn variant_not_found(id: i64, sku: &str) -> CatalogError {
+fn variant_not_found(id: Uuid, sku: &str) -> CatalogError {
     CatalogError::VariantNotFound {
         id,
         sku: sku.to_string(),

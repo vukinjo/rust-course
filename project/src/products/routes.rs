@@ -8,6 +8,7 @@ use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
+use uuid::Uuid;
 
 use super::entity::Image;
 use super::model::{
@@ -56,7 +57,7 @@ async fn list_products(
 /// GET /products/{id}
 async fn get_product(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<ProductResponse>, CatalogError> {
     let product = service.get(id).await?;
     Ok(Json(product.into()))
@@ -74,7 +75,7 @@ async fn create_product(
 /// PUT /products/{id} replaces the product, its variants and its versions.
 async fn update_product(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
     Json(request): Json<ProductUpdateRequest>,
 ) -> Result<Json<ProductResponse>, CatalogError> {
     let product = service.update(id, request.into()).await?;
@@ -84,7 +85,7 @@ async fn update_product(
 /// DELETE /products/{id}: 204 No Content.
 async fn delete_product(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
 ) -> Result<StatusCode, CatalogError> {
     service.delete(id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -93,7 +94,7 @@ async fn delete_product(
 /// GET /products/{id}/reviews: 502 Bad Gateway when the reviews service fails.
 async fn product_reviews(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ReviewResponse>>, CatalogError> {
     let reviews = service.reviews(id).await?;
     Ok(Json(
@@ -105,7 +106,7 @@ async fn product_reviews(
 /// decide the type; the request's Content-Type header is not trusted.
 async fn put_product_image(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
     body: Bytes,
 ) -> Result<StatusCode, CatalogError> {
     let image = Image::from_bytes(body.to_vec()).ok_or(CatalogError::NotAnImage)?;
@@ -116,7 +117,7 @@ async fn put_product_image(
 /// GET /products/{id}/image: the bytes, with the stored Content-Type.
 async fn get_product_image(
     State(service): State<ProductService>,
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
 ) -> Result<Response, CatalogError> {
     let image = service.product_image(id).await?;
     Ok(image_response(image))
@@ -125,7 +126,7 @@ async fn get_product_image(
 /// PUT /products/{id}/variants/{sku}/image
 async fn put_variant_image(
     State(service): State<ProductService>,
-    Path((id, sku)): Path<(i64, String)>,
+    Path((id, sku)): Path<(Uuid, String)>,
     body: Bytes,
 ) -> Result<StatusCode, CatalogError> {
     let image = Image::from_bytes(body.to_vec()).ok_or(CatalogError::NotAnImage)?;
@@ -136,7 +137,7 @@ async fn put_variant_image(
 /// GET /products/{id}/variants/{sku}/image
 async fn get_variant_image(
     State(service): State<ProductService>,
-    Path((id, sku)): Path<(i64, String)>,
+    Path((id, sku)): Path<(Uuid, String)>,
 ) -> Result<Response, CatalogError> {
     let image = service.variant_image(id, &sku).await?;
     Ok(image_response(image))

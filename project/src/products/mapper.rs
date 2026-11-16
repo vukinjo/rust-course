@@ -148,12 +148,14 @@ impl From<&Image> for ImageResponse {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
 
     #[test]
     fn a_response_describes_images_without_their_bytes() {
         let product = ProductEntity {
-            id: 1,
+            id: Uuid::now_v7(),
             name: "A".into(),
             brand: "B".into(),
             description: String::new(),

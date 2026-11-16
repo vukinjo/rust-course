@@ -65,7 +65,7 @@ directly needs the variables set some other way.
 | `APP_REVIEWS__TIMEOUT_MS` | `5000` |
 
 For deployment, `cargo build --release` writes `target/release/shoes` (15 MB). `cargo build --profile small`
-writes `target/small/shoes` (5.7 MB), optimized for size; see `[profile.small]` in `Cargo.toml`. Neither
+writes `target/small/shoes` (5.8 MB), optimized for size; see `[profile.small]` in `Cargo.toml`. Neither
 needs anything but its environment variables.
 
 ## Run it in a container
@@ -125,6 +125,9 @@ request shows `user="<id>"`, and handlers can take a `CurrentUser` argument. For
 curl -H 'Authorization: Bearer abcdefghij' localhost:3000/products
 ```
 
+Ids are UUIDv7 strings such as `01a1e42c-9b05-7222-92f8-b6e2aa85cf7b`: PostgreSQL makes them with `uuidv7()`, and
+they sort in the order of creation. A path id that is not a UUID gets 400.
+
 | Method and path | Result |
 |---|---|
 | `GET /products?name=&brand=&minPrice=&maxPrice=` | 200, the matching products |
@@ -144,7 +147,7 @@ or query parameters are rejected by axum's extractors, with a plain-text message
 
 ## Integration tests with Bruno
 
-`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 40 requests and 85 tests. The six folders run
+`integration-tests/` is a [Bruno](https://www.usebruno.com/) collection with 41 requests and 87 tests. The six folders run
 in order: they create a product, read it, filter it, update it, attach images, fetch its reviews and delete it,
 and then check that requests without a valid token get 401 and that `GET /me` names the caller. The last folder reads
 `GET /system`. The collection

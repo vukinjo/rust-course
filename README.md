@@ -45,7 +45,7 @@ Open `course/index.html` in a browser. It needs no server and no internet connec
 migrations, a reqwest client for reviews, structured logs with tracing, settings from environment variables, a bearer-token
 check on every request, a `GET /system` endpoint that shows what the process sees of the operating system, and a
 Containerfile that packages it. Its [README](project/README.md) explains how to start the database, run the service and
-run the tests (46 Rust tests, and the Bruno collection's 40 requests).
+run the tests (46 Rust tests, and the Bruno collection's 41 requests).
 
 Quick start, once the PostgreSQL container from Chapter 25 is running:
 

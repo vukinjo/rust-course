@@ -6,6 +6,7 @@ use shoes::products::ProductService;
 use shoes::reviews::ReviewsClient;
 use sqlx::PgPool;
 use sqlx::migrate::Migrator;
+use uuid::Uuid;
 
 /// The files in migrations/, embedded at compile time, like in main.rs.
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -18,18 +19,24 @@ const BEFORE_STOCK: i64 = 20261115000000;
 #[sqlx::test(migrations = false)]
 async fn existing_variants_get_a_stock_of_zero(pool: PgPool) {
     MIGRATOR.run_to(BEFORE_STOCK, &pool).await.unwrap(); // the old schema
-    sqlx::query("INSERT INTO products (name, brand) VALUES ('Old Shoe', 'Stride')")
-        .execute(&pool)
-        .await
-        .unwrap();
-    sqlx::query("INSERT INTO variants (product_id, sku, price_cents) VALUES (1, 'OLD-42', 5000)")
+    let product_id: Uuid = sqlx::query_scalar(
+        "INSERT INTO products (name, brand) VALUES ('Old Shoe', 'Stride') RETURNING id",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO variants (product_id, sku, price_cents) VALUES ($1, 'OLD-42', 5000)")
+        .bind(product_id)
         .execute(&pool)
         .await
         .unwrap();
 
     MIGRATOR.run(&pool).await.unwrap(); // applies 0002 to a table with data
     let reviews = ReviewsClient::new("http://127.0.0.1:9", Duration::from_secs(5)).unwrap(); // not used
-    let product = ProductService::new(pool, reviews).get(1).await.unwrap();
+    let product = ProductService::new(pool, reviews)
+        .get(product_id)
+        .await
+        .unwrap();
     assert_eq!(product.variants[0].sku, "OLD-42");
     assert_eq!(product.variants[0].stock, 0);
 }

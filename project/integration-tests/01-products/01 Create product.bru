@@ -41,13 +41,15 @@ script:post-response {
 tests {
   const run = bru.getVar("run");
   const body = res.getBody();
+  // version 7 in the 13th hex digit, variant 10xx in the 17th
+  const uuidV7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
   test("returns 201 Created", function () {
     expect(res.getStatus()).to.equal(201);
   });
 
-  test("returns the product with its new id", function () {
-    expect(body.id).to.be.a("number");
+  test("returns the product with its new id, a UUIDv7", function () {
+    expect(body.id).to.match(uuidV7);
     expect(body.name).to.equal(`Road Racer ${run}`);
     expect(body.brand).to.equal("Stride");
     expect(body.description).to.equal("Carbon-plated racing shoe");
@@ -57,7 +59,7 @@ tests {
   test("returns the variants with ids, stock 0 by default and no image", function () {
     expect(body.variants.map((v) => v.sku)).to.have.members([`RR-WHT-${run}`, `RR-VOLT-${run}`]);
     body.variants.forEach((v) => {
-      expect(v.id).to.be.a("number");
+      expect(v.id).to.match(uuidV7);
       expect(v.priceCents).to.equal(22999);
       expect(v.stock).to.equal(0);
       expect(v.image).to.equal(null);

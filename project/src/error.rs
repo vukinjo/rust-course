@@ -8,6 +8,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::products::validate::ValidationError;
 
@@ -17,8 +18,8 @@ use crate::products::validate::ValidationError;
 #[derive(Debug)]
 pub enum CatalogError {
     Invalid(ValidationError),
-    NotFound(i64),
-    VariantNotFound { id: i64, sku: String },
+    NotFound(Uuid),
+    VariantNotFound { id: Uuid, sku: String },
     DuplicateName(String),
     DuplicateSku(String),
     NoImage,

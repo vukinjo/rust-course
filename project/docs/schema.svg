@@ -44,7 +44,7 @@
 
   <rect class="bg" width="1240" height="1040"/>
   <text x="40" y="44" class="t">shoes: database schema</text>
-  <text x="40" y="68" class="muted">PostgreSQL 18, after migrations 0001_create_catalog and 0002_add_variant_stock. Crow's foot notation; every column is NOT NULL unless it says NULL.</text>
+  <text x="40" y="68" class="muted">PostgreSQL 18, after migrations 0001_create_catalog and 0002_add_variant_stock. Ids are UUIDv7. Crow's foot notation; every column is NOT NULL unless it says NULL.</text>
 
   <!-- relationships -->
     <path d="M510 142.0H620.0V164.0H730" class="rel"/>
@@ -76,8 +76,8 @@
     <text x="498" y="117" class="muted r">a shoe model</text>
     <text x="52" y="143.0" class="key">PK</text>
     <text x="106" y="143.0" class="m u">id</text>
-    <text x="216" y="143.0" class="m muted">BIGINT</text>
-    <text x="310" y="143.0" class="note">identity</text>
+    <text x="216" y="143.0" class="m muted">UUID</text>
+    <text x="310" y="143.0" class="note">default uuidv7()</text>
     <path d="M48 150H502" class="sep"/>
     <text x="52" y="165.0" class="key">UK</text>
     <text x="106" y="165.0" class="m">name</text>
@@ -113,12 +113,12 @@
     <text x="1188" y="117" class="muted r">one sellable variant, with its own SKU</text>
     <text x="742" y="143.0" class="key">PK</text>
     <text x="796" y="143.0" class="m u">id</text>
-    <text x="906" y="143.0" class="m muted">BIGINT</text>
-    <text x="1000" y="143.0" class="note">identity</text>
+    <text x="906" y="143.0" class="m muted">UUID</text>
+    <text x="1000" y="143.0" class="note">default uuidv7()</text>
     <path d="M738 150H1192" class="sep"/>
     <text x="742" y="165.0" class="key">FK</text>
     <text x="796" y="165.0" class="m">product_id</text>
-    <text x="906" y="165.0" class="m muted">BIGINT</text>
+    <text x="906" y="165.0" class="m muted">UUID</text>
     <text x="1000" y="165.0" class="note">→ products.id · cascade</text>
     <path d="M738 172H1192" class="sep"/>
     <text x="742" y="187.0" class="key">UK</text>
@@ -152,12 +152,12 @@
     <text x="498" y="491" class="muted r">a release of the model</text>
     <text x="52" y="517.0" class="key">PK</text>
     <text x="106" y="517.0" class="m u">id</text>
-    <text x="216" y="517.0" class="m muted">BIGINT</text>
-    <text x="310" y="517.0" class="note">identity</text>
+    <text x="216" y="517.0" class="m muted">UUID</text>
+    <text x="310" y="517.0" class="note">default uuidv7()</text>
     <path d="M48 524H502" class="sep"/>
     <text x="52" y="539.0" class="key">FK UK1</text>
     <text x="106" y="539.0" class="m">product_id</text>
-    <text x="216" y="539.0" class="m muted">BIGINT</text>
+    <text x="216" y="539.0" class="m muted">UUID</text>
     <text x="310" y="539.0" class="note">→ products.id · cascade</text>
     <path d="M48 546H502" class="sep"/>
     <text x="52" y="561.0" class="key">UK1</text>
@@ -179,12 +179,12 @@
     <text x="1188" y="491" class="muted r">associative table: versions ⟷ variants</text>
     <text x="742" y="517.0" class="key">PK FK</text>
     <text x="796" y="517.0" class="m u">version_id</text>
-    <text x="906" y="517.0" class="m muted">BIGINT</text>
+    <text x="906" y="517.0" class="m muted">UUID</text>
     <text x="1000" y="517.0" class="note">→ versions.id · cascade</text>
     <path d="M738 524H1192" class="sep"/>
     <text x="742" y="539.0" class="key">PK FK</text>
     <text x="796" y="539.0" class="m u">variant_id</text>
-    <text x="906" y="539.0" class="m muted">BIGINT</text>
+    <text x="906" y="539.0" class="m muted">UUID</text>
     <text x="1000" y="539.0" class="note">→ variants.id · cascade</text>
   </g>
   <g>
@@ -235,7 +235,7 @@
   <text x="580" y="814" class="note nul">NULL</text>
   <text x="676" y="814">nullable column</text>
   <text x="576" y="844" class="h">Constraints and indexes</text>
-  <text x="580" y="866" class="m">identity: GENERATED ALWAYS AS IDENTITY, a sequence for each table; ids can have gaps</text>
+  <text x="580" y="866" class="m">ids: UUIDv7 from uuidv7() (PostgreSQL 18); the time prefix keeps them in order</text>
   <text x="580" y="884" class="m">check: media type: image_type IN ('image/jpeg', 'image/png', 'image/webp')</text>
   <text x="580" y="902" class="m">CHECK ((image IS NULL) = (image_type IS NULL)) on products and variants</text>
   <text x="580" y="920" class="m">UNIQUE (product_id, number) on versions: one number for each version of a product</text>
