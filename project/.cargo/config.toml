@@ -12,3 +12,17 @@ APP_DATABASE__URL = "postgres://catalog:catalog@localhost:5432/shoes"
 APP_DATABASE__MAX_CONNECTIONS = "10"
 APP_REVIEWS__URL = "https://jsonplaceholder.typicode.com"
 APP_REVIEWS__TIMEOUT_MS = "5000"
+
+# Short names for long commands: `cargo lint`, `cargo fmt-check`, `cargo small`,
+# `cargo prepare`.
+# An alias expands to one cargo command; arguments you add go at the end.
+[alias]
+# Clippy on all code, tests included, with each warning as an error
+lint = "clippy --all-targets -- -D warnings"
+# Checks the format and changes nothing: fails if `cargo fmt` would change a file
+fmt-check = "fmt --check"
+# The release binary optimized for size (Chapter 28): target/small/shoes
+small = "build --profile small"
+# Saves the query metadata in .sqlx/ for builds without a database (needs
+# sqlx-cli and DATABASE_URL)
+prepare = "sqlx prepare -- --all-targets"

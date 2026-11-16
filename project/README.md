@@ -21,12 +21,14 @@ assets/                sample files for image uploads (two PNGs and a text file 
 integration-tests/     Bruno collection: integration tests for the running service
 .cargo/config.toml     the local settings: Cargo sets them as APP_* variables for cargo run and cargo test
 docs/architecture.svg  diagram: start-up wiring, request flow, errors, comparison with Spring Boot
+docs/schema.svg        diagram: the database schema (crow's foot notation), constraints and indexes
 Containerfile          two-stage image build: compile with --profile small, run on distroless (Chapter 28)
 .containerignore       keeps the build context to the files the build needs
 ```
 
 The diagram in [docs/architecture.svg](docs/architecture.svg) shows how `main.rs` builds each component and how a
-request travels through the layers, the handler, the service and the repository.
+request travels through the layers, the handler, the service and the repository. [docs/schema.svg](docs/schema.svg) shows the
+tables after both migrations, their relations, constraints and indexes, and the `_sqlx_migrations` table that SQLx keeps.
 
 ## Run it
 
@@ -105,8 +107,12 @@ The container and `cargo run` both use port 3000, so stop one before starting th
 
 ```bash
 DATABASE_URL=postgres://catalog:catalog@localhost:5432/shoes cargo test   # 46 tests; each #[sqlx::test] gets its own database
-cargo clippy --all-targets -- -D warnings
+cargo lint                                                                # clippy --all-targets -- -D warnings
 ```
+
+`.cargo/config.toml` defines four aliases: `cargo lint` (as above), `cargo fmt-check` (`fmt --check`, which changes
+nothing and fails if a file is not formatted), `cargo small` (`build --profile small`) and
+`cargo prepare` (`sqlx prepare -- --all-targets`, which updates `.sqlx/` after a query changes).
 
 ## API
 

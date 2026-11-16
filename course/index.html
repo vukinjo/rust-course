@@ -22085,7 +22085,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <aside class="callout c-kotlin"><div class="callout-label">Coming from Kotlin</div><p>A Spring Boot fat jar needs a JRE in the image, and the JRE alone is some hundred megabytes. The JVM also needs memory flags that agree with the limits of the container, and time to warm up. The nearest JVM equivalent to this binary is a GraalVM <code>native-image</code>: one executable, fast start-up, no JRE. In Java, it is an extra build with its own limits on reflection. In Rust, the compiler always makes a native executable.</p></aside>
 
 <h3 id="containers-project-step">Project step 28: a container image</h3>
-<aside class="callout c-new"><div class="callout-label">This step</div><p><code>Cargo.toml</code> gets the <code>small</code> profile, and two new files package the service. A <code>Containerfile</code> builds the binary in a Rust image and copies it, and nothing else, into a minimal runtime image. A <code>.containerignore</code> keeps the build context small. The container needs no change to the Rust code. A new module, <code>src/system.rs</code>, adds <code>GET /system</code>, which the section <a href="#containers-system">What the process sees</a> explains.</p></aside>
+<aside class="callout c-new"><div class="callout-label">This step</div><p><code>Cargo.toml</code> gets the <code>small</code> profile, and two new files package the service. A <code>Containerfile</code> builds the binary in a Rust image and copies it, and nothing else, into a minimal runtime image. A <code>.containerignore</code> keeps the build context small, and <code>.cargo/config.toml</code> gets short names for long commands. The container needs no change to the Rust code. A new module, <code>src/system.rs</code>, adds <code>GET /system</code>, which the section <a href="#containers-system">What the process sees</a> explains.</p></aside>
 <figure class="code plain project" data-diff-file="Cargo.toml" data-diff-since="27"><figcaption><span class="code-title">Cargo.toml (changes since step 27)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/Cargo.toml</span>
 <span class="gi">+++ b/Cargo.toml</span>
 <span class="gu">@@ -23,2 +23,12 @@</span>
@@ -22101,6 +22101,26 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 <span class="gi">+opt-level = &quot;z&quot;     # optimize for size instead of speed</span>
 <span class="gi">+lto = true          # optimize across all crates at link time</span>
 <span class="gi">+codegen-units = 1   # one unit per crate, so the optimizer sees more at once</span></code></pre></figure>
+<p>The commands become long: <code>cargo build --profile small</code>, the Clippy command of the project, the format check, and the <code>sqlx prepare</code> command from Chapter 25. The <code>[alias]</code> table in <code>.cargo/config.toml</code> gives them short names, like the <code>scripts</code> in a <code>package.json</code> or a task in Gradle. An alias expands to exactly one Cargo command, and Cargo adds the arguments that you type at the end. It cannot run a sequence of commands or a different program, such as <code>podman</code>. For that, Rust projects frequently use a task runner such as <code>just</code>.</p>
+<figure class="code plain project" data-diff-file=".cargo/config.toml" data-diff-since="25"><figcaption><span class="code-title">.cargo/config.toml (changes since step 25)</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="gd">--- a/.cargo/config.toml</span>
+<span class="gi">+++ b/.cargo/config.toml</span>
+<span class="gu">@@ -13,2 +13,16 @@</span>
+<span class="w"> </span>APP_REVIEWS__URL = &quot;https://jsonplaceholder.typicode.com&quot;
+<span class="w"> </span>APP_REVIEWS__TIMEOUT_MS = &quot;5000&quot;
+<span class="gi">+</span>
+<span class="gi">+# Short names for long commands: `cargo lint`, `cargo fmt-check`, `cargo small`,</span>
+<span class="gi">+# `cargo prepare`.</span>
+<span class="gi">+# An alias expands to one cargo command; arguments you add go at the end.</span>
+<span class="gi">+[alias]</span>
+<span class="gi">+# Clippy on all code, tests included, with each warning as an error</span>
+<span class="gi">+lint = &quot;clippy --all-targets -- -D warnings&quot;</span>
+<span class="gi">+# Checks the format and changes nothing: fails if `cargo fmt` would change a file</span>
+<span class="gi">+fmt-check = &quot;fmt --check&quot;</span>
+<span class="gi">+# The release binary optimized for size (Chapter 28): target/small/shoes</span>
+<span class="gi">+small = &quot;build --profile small&quot;</span>
+<span class="gi">+# Saves the query metadata in .sqlx/ for builds without a database (needs</span>
+<span class="gi">+# sqlx-cli and DATABASE_URL)</span>
+<span class="gi">+prepare = &quot;sqlx prepare -- --all-targets&quot;</span></code></pre></figure>
 <p>The <code>Containerfile</code> describes the image. Podman looks for a file with that name first. If there is none, it uses <code>Dockerfile</code>. The syntax is the same, and Docker builds it with <code>docker build -f Containerfile .</code>.</p>
 <figure class="code plain project"><figcaption><span class="code-title">Containerfile</span><span class="badge badge-project">project</span><span class="code-actions"><button type="button" class="copy" aria-label="Copy code">Copy</button></span></figcaption><pre class="src"><code><span class="c"># The shoe service as a container image, built in two stages.</span>
 <span class="c">#</span>
